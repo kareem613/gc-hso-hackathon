@@ -1,0 +1,56 @@
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMServiceAccount
+metadata:
+  name: hso-cloudbuild-sa
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  displayName: "HSO Cloud Build Service Account"
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-cloudbuild-logs
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  memberFrom:
+    serviceAccountRef:
+      name: hso-cloudbuild-sa
+  role: roles/logging.logWriter
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-cloudbuild-storage
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  memberFrom:
+    serviceAccountRef:
+      name: hso-cloudbuild-sa
+  role: roles/storage.admin
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-cloudbuild-ar-writer
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  memberFrom:
+    serviceAccountRef:
+      name: hso-cloudbuild-sa
+  role: roles/artifactregistry.writer
+  resourceRef:
+    apiVersion: artifactregistry.cnrm.cloud.google.com/v1beta1
+    kind: ArtifactRegistryRepository
+    name: hso-repo

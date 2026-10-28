@@ -1,0 +1,13 @@
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-node-ar-reader
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:GKE_NODE_SA_NAME@GSA_DOMAIN
+  role: roles/artifactregistry.reader
+  resourceRef:
+    apiVersion: artifactregistry.cnrm.cloud.google.com/v1beta1
+    kind: ArtifactRegistryRepository
+    name: hso-repo

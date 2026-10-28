@@ -1,0 +1,11 @@
+apiVersion: artifactregistry.cnrm.cloud.google.com/v1beta1
+kind: ArtifactRegistryRepository
+metadata:
+  name: hso-repo
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-repo
+  format: DOCKER
+  location: REGION
+  description: "HSO Incident Response Console container repository"

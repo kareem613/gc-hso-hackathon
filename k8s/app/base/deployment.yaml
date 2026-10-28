@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hso-console
+  labels:
+    app: hso-console
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: hso-console
+  template:
+    metadata:
+      labels:
+        app: hso-console
+    spec:
+      serviceAccountName: hso-app-sa
+      containers:
+        - name: hso-console
+          image: hso-console:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 80
+              name: http
+          envFrom:
+            - secretRef:
+                name: hso-env-secret
+          volumeMounts:
+            - name: datasets-volume
+              mountPath: /usr/share/nginx/html/datasets
+              readOnly: true
+      volumes:
+        - name: datasets-volume
+          persistentVolumeClaim:
+            claimName: datasets-pvc
+            readOnly: true

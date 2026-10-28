@@ -1,2 +1,3 @@
 datasets/
 .env
+k8s/config/infra.env

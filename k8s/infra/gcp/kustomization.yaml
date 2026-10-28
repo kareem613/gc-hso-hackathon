@@ -1,0 +1,115 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../config
+  - apis.yaml
+  - artifact-registry.yaml
+  - cloudbuild-iam.yaml
+  - gke-node-iam.yaml
+
+configMapGenerator:
+  - name: infra-derived-config
+    literals:
+      - GSA_DOMAIN=PROJECT_ID.iam.gserviceaccount.com
+      - NODE_SA_PREFIX=serviceAccount:GKE_NODE_SA_NAME
+    options:
+      disableNameSuffixHash: true
+      annotations:
+        config.kubernetes.io/local-config: "true"
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.PROJECT_ID
+    targets:
+      - select:
+          kind: ConfigMap
+          name: infra-derived-config
+        fieldPaths:
+          - data.GSA_DOMAIN
+        options:
+          delimiter: "."
+          index: 0
+      - select:
+          kind: Service
+          group: serviceusage.cnrm.cloud.google.com
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: ArtifactRegistryRepository
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: IAMServiceAccount
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: IAMPolicyMember
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: IAMPolicyMember
+          name: hso-cloudbuild-logs
+        fieldPaths:
+          - spec.resourceRef.external
+        options:
+          delimiter: "/"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-cloudbuild-storage
+        fieldPaths:
+          - spec.resourceRef.external
+        options:
+          delimiter: "/"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.GKE_NODE_SA_NAME
+    targets:
+      - select:
+          kind: ConfigMap
+          name: infra-derived-config
+        fieldPaths:
+          - data.NODE_SA_PREFIX
+        options:
+          delimiter: ":"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: infra-derived-config
+      fieldPath: data.NODE_SA_PREFIX
+    targets:
+      - select:
+          kind: IAMPolicyMember
+          name: hso-node-ar-reader
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 0
+  - source:
+      kind: ConfigMap
+      name: infra-derived-config
+      fieldPath: data.GSA_DOMAIN
+    targets:
+      - select:
+          kind: IAMPolicyMember
+          name: hso-node-ar-reader
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.REGION
+    targets:
+      - select:
+          kind: ArtifactRegistryRepository
+        fieldPaths:
+          - spec.location

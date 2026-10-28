@@ -1,0 +1,160 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../../config
+  - ../../base
+  - bucket.yaml
+  - pv.yaml
+
+configMapGenerator:
+  - name: gcp-derived-config
+    literals:
+      - GSA_DOMAIN=PROJECT_ID.iam.gserviceaccount.com
+      - WI_POOL=PROJECT_ID.svc.id.goog[default/hso-app-sa]
+    options:
+      disableNameSuffixHash: true
+      annotations:
+        config.kubernetes.io/local-config: "true"
+
+patches:
+  - target:
+      kind: PersistentVolumeClaim
+      name: datasets-pvc
+    patch: |-
+      apiVersion: v1
+      kind: PersistentVolumeClaim
+      metadata:
+        name: datasets-pvc
+      spec:
+        storageClassName: gcsfuse-sc
+        volumeName: datasets-pv
+  - target:
+      kind: ServiceAccount
+      name: hso-app-sa
+    patch: |-
+      apiVersion: v1
+      kind: ServiceAccount
+      metadata:
+        name: hso-app-sa
+        annotations:
+          iam.gke.io/gcp-service-account: hso-app-gsa@GSA_DOMAIN
+  - target:
+      kind: Deployment
+      name: hso-console
+    patch: |-
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: hso-console
+      spec:
+        template:
+          metadata:
+            annotations:
+              gke-gcsfuse/volumes: "true"
+          spec:
+            containers:
+              - name: hso-console
+                image: REGION-docker.pkg.dev/PROJECT_ID/hso-repo/hso-console:latest
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.PROJECT_ID
+    targets:
+      - select:
+          kind: ConfigMap
+          name: gcp-derived-config
+        fieldPaths:
+          - data.GSA_DOMAIN
+          - data.WI_POOL
+        options:
+          delimiter: "."
+          index: 0
+      - select:
+          kind: StorageBucket
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: StorageBucket
+        fieldPaths:
+          - spec.resourceID
+        options:
+          delimiter: "-"
+          index: 0
+      - select:
+          kind: IAMServiceAccount
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: IAMPolicyMember
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: PersistentVolume
+          name: datasets-pv
+        fieldPaths:
+          - spec.csi.volumeHandle
+        options:
+          delimiter: "-"
+          index: 0
+      - select:
+          kind: Deployment
+          name: hso-console
+        fieldPaths:
+          - spec.template.spec.containers.[name=hso-console].image
+        options:
+          delimiter: "/"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: gcp-derived-config
+      fieldPath: data.GSA_DOMAIN
+    targets:
+      - select:
+          kind: ServiceAccount
+          name: hso-app-sa
+        fieldPaths:
+          - metadata.annotations.[iam.gke.io/gcp-service-account]
+        options:
+          delimiter: "@"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-bucket-viewer
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: gcp-derived-config
+      fieldPath: data.WI_POOL
+    targets:
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-wi-binding
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: ":"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.REGION
+    targets:
+      - select:
+          kind: StorageBucket
+        fieldPaths:
+          - spec.location
+      - select:
+          kind: Deployment
+          name: hso-console
+        fieldPaths:
+          - spec.template.spec.containers.[name=hso-console].image
+        options:
+          delimiter: "-docker.pkg.dev"
+          index: 0
