@@ -1,4 +1,5 @@
 .git
+.gemini
 .gitignore
 .dockerignore
 .gcloudignore

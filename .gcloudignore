@@ -1,6 +1,7 @@
 .gcloudignore
 .dockerignore
 .git
+.gemini
 .gitignore
 .env
 .env.example
