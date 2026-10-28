@@ -284,7 +284,13 @@ body {
   transform: translate3d(100%, 0, 0);
 }
 
-.pane-drawer[hidden] {
+.pane-drawer[hidden],
+.panel-section[hidden],
+.layer-toggle-row[hidden],
+.legend-item[hidden],
+.map-legend-overlay[hidden],
+.map-timeline-overlay[hidden],
+.datasets-empty-msg[hidden] {
   display: none;
 }
 
@@ -395,6 +401,12 @@ body {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+}
+
+.datasets-empty-msg {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  padding: 0.25rem 0.1rem;
 }
 
 .layer-toggle-row {
@@ -556,6 +568,10 @@ body {
 
 .workspace-layout.right-collapsed .map-timeline-overlay {
   right: 3.4rem;
+}
+
+.workspace-layout.right-hidden .map-timeline-overlay {
+  right: 0.95rem;
 }
 
 .timeline-header-row {

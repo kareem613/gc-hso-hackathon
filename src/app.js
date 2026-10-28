@@ -45,15 +45,23 @@ const LIGHT_MAP_STYLES = [
 
 const state = {
   mapType: "hybrid",
+  hasAnyDataset: false,
+  trafficSourceFile: "road_traffic.json",
   globalMinEpoch: 0,
   globalMaxEpoch: 0,
   windowStartEpoch: 0,
   windowEndEpoch: 0,
+  available: {
+    wlc: false,
+    radar: false,
+    collars: false,
+    traffic: false,
+  },
   layers: {
-    wlc: true,
-    radar: true,
-    collars: true,
-    traffic: true,
+    wlc: false,
+    radar: false,
+    collars: false,
+    traffic: false,
   },
   selectedFlights: new Set(),
   selectedCollarHw: new Set(),
@@ -156,12 +164,15 @@ function getTrafficUiStyle(congestion) {
    ========================================================================== */
 
 async function loadAllDatasets() {
-  const [bounds, briefing, radarMeta, collarMeta] = await Promise.all([
-    dataReader.getTimelineBounds(),
-    dataReader.getFacilityBriefing(),
-    dataReader.getRadarTracks(),
-    dataReader.getCollarTelemetry(),
-  ]);
+  const [bounds, briefing, wlcMeta, radarMeta, collarMeta, trafficMeta] =
+    await Promise.all([
+      dataReader.getTimelineBounds(),
+      dataReader.getFacilityBriefing(),
+      dataReader.getWlcEvents(),
+      dataReader.getRadarTracks(),
+      dataReader.getCollarTelemetry(),
+      dataReader.getRoadTraffic(),
+    ]);
 
   FACILITY_NAME = briefing.facilityName;
   FACILITY_CENTER.lat = briefing.lat;
@@ -176,6 +187,48 @@ async function loadAllDatasets() {
   const apCountEl = document.getElementById("stat-wlc-aps");
   if (apCountEl) {
     apCountEl.textContent = `${ALL_APS.length} APs`;
+  }
+
+  state.available = {
+    wlc: Boolean(wlcMeta.available),
+    radar: Boolean(radarMeta.available),
+    collars: Boolean(collarMeta.available),
+    traffic: Boolean(trafficMeta.available),
+  };
+  state.hasAnyDataset = Boolean(bounds.hasData);
+  state.trafficSourceFile = trafficMeta.sourceFile || "road_traffic.json";
+
+  const trafficSourceEl = document.getElementById("stat-traffic-source");
+  if (trafficSourceEl) {
+    trafficSourceEl.textContent = state.trafficSourceFile;
+  }
+
+  for (const key of ["wlc", "radar", "collars", "traffic"]) {
+    const isAvail = state.available[key];
+    state.layers[key] = isAvail;
+
+    const rowEl = document.getElementById(`layer-row-${key}`);
+    if (rowEl) rowEl.hidden = !isAvail;
+
+    const toggleEl = document.getElementById(`toggle-layer-${key}`);
+    if (toggleEl) toggleEl.checked = isAvail;
+
+    for (const legEl of document.querySelectorAll(`[data-legend-layer="${key}"]`)) {
+      legEl.hidden = !isAvail;
+    }
+  }
+
+  const emptyMsgEl = document.getElementById("datasets-empty-msg");
+  if (emptyMsgEl) {
+    emptyMsgEl.hidden = state.hasAnyDataset;
+  }
+  const legendEl = document.getElementById("map-legend");
+  if (legendEl) {
+    legendEl.hidden = !state.hasAnyDataset;
+  }
+  const scrubberEl = document.getElementById("timeline-scrubber-bar");
+  if (scrubberEl) {
+    scrubberEl.hidden = !state.hasAnyDataset;
   }
 
   state.catalog.radarTracks = radarMeta.tracks;
@@ -533,7 +586,9 @@ async function initGoogleMap() {
     }
   });
 
-  buildWlcOverlays(Circle);
+  if (state.available.wlc) {
+    buildWlcOverlays(Circle);
+  }
   initCanvasOverlay(OverlayView);
 
   state.map.addListener("bounds_changed", () => {
@@ -1054,7 +1109,7 @@ function openHitInfoWindow(hit) {
           <div class="map-popup-kv-list">
             <div class="map-popup-kv-row">
               <span class="map-popup-kv-key">Source:</span>
-              <span class="map-popup-kv-val">road_traffic.json</span>
+              <span class="map-popup-kv-val">${state.trafficSourceFile}</span>
             </div>
             <div class="map-popup-kv-row">
               <span class="map-popup-kv-key">Road Class:</span>
@@ -1207,8 +1262,10 @@ function openHitInfoWindow(hit) {
 
 function initFlightSelectorDOM() {
   const listEl = document.getElementById("radar-flights-list");
+  if (!listEl) return;
   listEl.replaceChildren();
   state.flightRowDomMap.clear();
+  if (!state.available.radar) return;
 
   const emptyEl = document.createElement("div");
   emptyEl.id = "radar-flights-empty";
@@ -1308,6 +1365,7 @@ function initCollarHwSelectorDOM() {
   if (!listEl) return;
   listEl.replaceChildren();
   state.collarHwRowDomMap.clear();
+  if (!state.available.collars) return;
 
   const emptyEl = document.createElement("div");
   emptyEl.id = "collar-hw-empty";
@@ -1412,215 +1470,246 @@ async function syncFilteredDataAndMap() {
   if (seq !== state.syncSeq) return;
 
   // 1. WLC Syslogs
-  const wlcEvents = wlcRes.events;
-  const wlcCount = wlcEvents.length;
-
-  document.getElementById("stat-wlc-events").textContent =
-    `${wlcCount.toLocaleString()} / ${wlcRes.totalEvents.toLocaleString()}`;
-
-  const statsByAp = {};
-  for (const ap of ALL_APS) {
-    statsByAp[ap.id] = { total: 0, gtv2: 0, warns: 0 };
-  }
-  let totalGtv2 = 0;
-  let totalWarns = 0;
-  for (const ev of wlcEvents) {
-    const st = statsByAp[ev.ap_id];
-    if (st) {
-      st.total++;
-      if (ev.isAnomaly) {
-        st.gtv2++;
-        totalGtv2++;
-      }
-      if (ev.event === "CHANNEL_UTIL_HIGH" || ev.event === "ASSOC_TABLE_SATURATED") {
-        st.warns++;
-        totalWarns++;
-      }
-    }
-  }
-
-  const fac = state.overlays.facilityAp;
-  if (fac) {
-    fac.statsByAp = statsByAp;
-    fac.totals = { total: wlcCount, gtv2: totalGtv2, warns: totalWarns };
-    const hasActivity = wlcCount > 0;
-    const hasSpike = totalGtv2 > 0 || totalWarns > 0;
-    const visKey = `${state.layers.wlc}:${hasActivity}:${hasSpike}`;
-
-    if (fac.lastVisKey !== visKey) {
-      fac.lastVisKey = visKey;
-      const color = !hasActivity
-        ? "#475569"
-        : hasSpike
-        ? "#ef4444"
-        : "#10b981";
-
-      fac.marker.setVisible(state.layers.wlc);
-      fac.marker.setIcon({
-        path: google.maps.SymbolPath.CIRCLE,
-        scale: hasSpike ? 13 : 11,
-        fillColor: color,
-        fillOpacity: hasActivity ? 1 : 0.55,
-        strokeColor: "#0f172a",
-        strokeWeight: 2,
-      });
-
-      fac.circle.setVisible(state.layers.wlc);
-      fac.circle.setOptions({
-        strokeColor: color,
-        fillColor: color,
-        fillOpacity: hasSpike ? 0.24 : hasActivity ? 0.14 : 0.05,
-      });
-    }
-  }
-
   const wlcSection = document.getElementById("wlc-syslog-section");
-  wlcSection.style.display = state.layers.wlc ? "flex" : "none";
-  if (state.layers.wlc) {
-    renderSyslogSample(wlcEvents);
+  if (state.available.wlc) {
+    const wlcEvents = wlcRes.events;
+    const wlcCount = wlcEvents.length;
+
+    document.getElementById("stat-wlc-events").textContent =
+      `${wlcCount.toLocaleString()} / ${wlcRes.totalEvents.toLocaleString()}`;
+
+    const statsByAp = {};
+    for (const ap of ALL_APS) {
+      statsByAp[ap.id] = { total: 0, gtv2: 0, warns: 0 };
+    }
+    let totalGtv2 = 0;
+    let totalWarns = 0;
+    for (const ev of wlcEvents) {
+      const st = statsByAp[ev.ap_id];
+      if (st) {
+        st.total++;
+        if (ev.isAnomaly) {
+          st.gtv2++;
+          totalGtv2++;
+        }
+        if (ev.event === "CHANNEL_UTIL_HIGH" || ev.event === "ASSOC_TABLE_SATURATED") {
+          st.warns++;
+          totalWarns++;
+        }
+      }
+    }
+
+    const fac = state.overlays.facilityAp;
+    if (fac) {
+      fac.statsByAp = statsByAp;
+      fac.totals = { total: wlcCount, gtv2: totalGtv2, warns: totalWarns };
+      const hasActivity = wlcCount > 0;
+      const hasSpike = totalGtv2 > 0 || totalWarns > 0;
+      const visKey = `${state.layers.wlc}:${hasActivity}:${hasSpike}`;
+
+      if (fac.lastVisKey !== visKey) {
+        fac.lastVisKey = visKey;
+        const color = !hasActivity
+          ? "#475569"
+          : hasSpike
+          ? "#ef4444"
+          : "#10b981";
+
+        fac.marker.setVisible(state.layers.wlc);
+        fac.marker.setIcon({
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: hasSpike ? 13 : 11,
+          fillColor: color,
+          fillOpacity: hasActivity ? 1 : 0.55,
+          strokeColor: "#0f172a",
+          strokeWeight: 2,
+        });
+
+        fac.circle.setVisible(state.layers.wlc);
+        fac.circle.setOptions({
+          strokeColor: color,
+          fillColor: color,
+          fillOpacity: hasSpike ? 0.24 : hasActivity ? 0.14 : 0.05,
+        });
+      }
+    }
+
+    if (wlcSection) {
+      wlcSection.hidden = !state.layers.wlc;
+    }
+    if (state.layers.wlc) {
+      renderSyslogSample(wlcEvents);
+    }
+  } else if (wlcSection) {
+    wlcSection.hidden = true;
   }
 
   // 2. CYOW Tower Radar & Persistent Flight Selector List
-  let visibleTracks = 0;
-  let visiblePings = 0;
-  let tracksInWindowCount = 0;
-  const activeRadarTracks = [];
-
-  for (const track of radarRes.tracks) {
-    const winCount = track.pings.length;
-    const isFlightChecked = state.selectedFlights.has(track.track_id);
-
-    const rowRec = state.flightRowDomMap.get(track.track_id);
-    if (rowRec) {
-      rowRec.windowTrack = track;
-      const shouldHide = winCount === 0;
-      if (rowRec.row.hidden !== shouldHide) {
-        rowRec.row.hidden = shouldHide;
-      }
-      if (rowRec.checkbox.checked !== isFlightChecked) {
-        rowRec.checkbox.checked = isFlightChecked;
-      }
-      if (winCount > 0 && rowRec.lastCount !== winCount) {
-        rowRec.lastCount = winCount;
-        rowRec.subSpan.textContent = `${track.rcs_profile} (${winCount} pings)`;
-      }
-    }
-
-    if (winCount > 0) {
-      tracksInWindowCount++;
-      if (state.layers.radar && isFlightChecked) {
-        visibleTracks++;
-        visiblePings += winCount;
-        activeRadarTracks.push(track);
-      }
-    }
-  }
-
-  state.filtered.activeRadarTracks = activeRadarTracks;
-
-  const emptyEl = document.getElementById("radar-flights-empty");
-  if (emptyEl) {
-    emptyEl.hidden = tracksInWindowCount > 0;
-  }
-
-  document.getElementById("stat-radar-tracks").textContent =
-    `${visibleTracks} / ${radarRes.totalTracks}`;
-  document.getElementById("stat-radar-pings").textContent =
-    `${visiblePings.toLocaleString()} / ${radarRes.totalPings.toLocaleString()}`;
-
   const radarSection = document.getElementById("radar-flights-section");
-  radarSection.style.display = state.layers.radar ? "flex" : "none";
+  if (state.available.radar) {
+    let visibleTracks = 0;
+    let visiblePings = 0;
+    let tracksInWindowCount = 0;
+    const activeRadarTracks = [];
+
+    for (const track of radarRes.tracks) {
+      const winCount = track.pings.length;
+      const isFlightChecked = state.selectedFlights.has(track.track_id);
+
+      const rowRec = state.flightRowDomMap.get(track.track_id);
+      if (rowRec) {
+        rowRec.windowTrack = track;
+        const shouldHide = winCount === 0;
+        if (rowRec.row.hidden !== shouldHide) {
+          rowRec.row.hidden = shouldHide;
+        }
+        if (rowRec.checkbox.checked !== isFlightChecked) {
+          rowRec.checkbox.checked = isFlightChecked;
+        }
+        if (winCount > 0 && rowRec.lastCount !== winCount) {
+          rowRec.lastCount = winCount;
+          rowRec.subSpan.textContent = `${track.rcs_profile} (${winCount} pings)`;
+        }
+      }
+
+      if (winCount > 0) {
+        tracksInWindowCount++;
+        if (state.layers.radar && isFlightChecked) {
+          visibleTracks++;
+          visiblePings += winCount;
+          activeRadarTracks.push(track);
+        }
+      }
+    }
+
+    state.filtered.activeRadarTracks = activeRadarTracks;
+
+    const emptyEl = document.getElementById("radar-flights-empty");
+    if (emptyEl) {
+      emptyEl.hidden = tracksInWindowCount > 0;
+    }
+
+    document.getElementById("stat-radar-tracks").textContent =
+      `${visibleTracks} / ${radarRes.totalTracks}`;
+    document.getElementById("stat-radar-pings").textContent =
+      `${visiblePings.toLocaleString()} / ${radarRes.totalPings.toLocaleString()}`;
+
+    if (radarSection) {
+      radarSection.hidden = !state.layers.radar;
+    }
+  } else {
+    state.filtered.activeRadarTracks = [];
+    if (radarSection) {
+      radarSection.hidden = true;
+    }
+  }
 
   // 3. Wildlife & Buoy CSV Telemetry
-  state.filtered.collarPoints = collarRes.points;
-
-  let visibleCollarCount = 0;
-  let hwGroupsInWindow = 0;
-  let visibleHwGroups = 0;
-  const totalHwGroups = collarRes.hardwareGroups.length;
-
-  for (const grp of collarRes.hardwareGroups) {
-    const winPts = grp.windowPoints;
-    const winTagCount = grp.tagCount;
-    const isChecked = state.selectedCollarHw.has(grp.hw);
-
-    if (state.layers.collars && isChecked) {
-      visibleCollarCount += winPts;
-    }
-
-    const rowRec = state.collarHwRowDomMap.get(grp.hw);
-    if (rowRec) {
-      const shouldHide = winPts === 0;
-      if (rowRec.row.hidden !== shouldHide) {
-        rowRec.row.hidden = shouldHide;
-      }
-      if (rowRec.checkbox.checked !== isChecked) {
-        rowRec.checkbox.checked = isChecked;
-      }
-      const key = `${winTagCount}:${winPts}`;
-      if (winPts > 0 && rowRec.lastKey !== key) {
-        rowRec.lastKey = key;
-        rowRec.titleSpan.textContent = `${grp.hw} (${winTagCount} tags)`;
-        rowRec.subSpan.textContent = `${grp.desc} · ${winPts.toLocaleString()} pts`;
-      }
-    }
-
-    if (winPts > 0) {
-      hwGroupsInWindow++;
-      if (state.layers.collars && isChecked) {
-        visibleHwGroups++;
-      }
-    }
-  }
-
-  const collarEmptyEl = document.getElementById("collar-hw-empty");
-  if (collarEmptyEl) {
-    collarEmptyEl.hidden = hwGroupsInWindow > 0;
-  }
-
-  document.getElementById("stat-collar-hw").textContent =
-    `${visibleHwGroups} / ${totalHwGroups}`;
-  document.getElementById("stat-collar-points").textContent =
-    `${visibleCollarCount.toLocaleString()} / ${collarRes.totalPoints.toLocaleString()}`;
-
   const collarSection = document.getElementById("collar-hw-section");
-  if (collarSection) {
-    collarSection.style.display = state.layers.collars ? "flex" : "none";
+  if (state.available.collars) {
+    state.filtered.collarPoints = collarRes.points;
+
+    let visibleCollarCount = 0;
+    let hwGroupsInWindow = 0;
+    let visibleHwGroups = 0;
+    const totalHwGroups = collarRes.hardwareGroups.length;
+
+    for (const grp of collarRes.hardwareGroups) {
+      const winPts = grp.windowPoints;
+      const winTagCount = grp.tagCount;
+      const isChecked = state.selectedCollarHw.has(grp.hw);
+
+      if (state.layers.collars && isChecked) {
+        visibleCollarCount += winPts;
+      }
+
+      const rowRec = state.collarHwRowDomMap.get(grp.hw);
+      if (rowRec) {
+        const shouldHide = winPts === 0;
+        if (rowRec.row.hidden !== shouldHide) {
+          rowRec.row.hidden = shouldHide;
+        }
+        if (rowRec.checkbox.checked !== isChecked) {
+          rowRec.checkbox.checked = isChecked;
+        }
+        const key = `${winTagCount}:${winPts}`;
+        if (winPts > 0 && rowRec.lastKey !== key) {
+          rowRec.lastKey = key;
+          rowRec.titleSpan.textContent = `${grp.hw} (${winTagCount} tags)`;
+          rowRec.subSpan.textContent = `${grp.desc} · ${winPts.toLocaleString()} pts`;
+        }
+      }
+
+      if (winPts > 0) {
+        hwGroupsInWindow++;
+        if (state.layers.collars && isChecked) {
+          visibleHwGroups++;
+        }
+      }
+    }
+
+    const collarEmptyEl = document.getElementById("collar-hw-empty");
+    if (collarEmptyEl) {
+      collarEmptyEl.hidden = hwGroupsInWindow > 0;
+    }
+
+    document.getElementById("stat-collar-hw").textContent =
+      `${visibleHwGroups} / ${totalHwGroups}`;
+    document.getElementById("stat-collar-points").textContent =
+      `${visibleCollarCount.toLocaleString()} / ${collarRes.totalPoints.toLocaleString()}`;
+
+    if (collarSection) {
+      collarSection.hidden = !state.layers.collars;
+    }
+  } else {
+    state.filtered.collarPoints = [];
+    if (collarSection) {
+      collarSection.hidden = true;
+    }
   }
 
   // 4. Historical Road Traffic (enriched with UI colors)
-  const activeTrafficSegments = trafficRes.segments.map((seg) => ({
-    ...seg,
-    ...getTrafficUiStyle(seg.congestion),
-  }));
-  state.filtered.activeTrafficSegments = activeTrafficSegments;
+  if (state.available.traffic) {
+    const activeTrafficSegments = trafficRes.segments.map((seg) => ({
+      ...seg,
+      ...getTrafficUiStyle(seg.congestion),
+    }));
+    state.filtered.activeTrafficSegments = activeTrafficSegments;
 
-  const trafficSegEl = document.getElementById("stat-traffic-segments");
-  if (trafficSegEl) {
-    const shownSegs = state.layers.traffic ? trafficRes.totalSegments : 0;
-    trafficSegEl.textContent = `${shownSegs} / ${trafficRes.totalSegments}`;
-  }
-
-  const trafficFlowEl = document.getElementById("stat-traffic-flow");
-  if (trafficFlowEl) {
-    if (!state.layers.traffic || activeTrafficSegments.length === 0) {
-      trafficFlowEl.textContent = "Hidden";
-    } else {
-      const estClock = epochToEstString(trafficRes.evalEpoch).slice(11, 16);
-      const summary = activeTrafficSegments
-        .map((s) => `${s.speed_kmh}km/h`)
-        .join(" · ");
-      trafficFlowEl.textContent = `${estClock} EST (${summary})`;
+    const trafficSegEl = document.getElementById("stat-traffic-segments");
+    if (trafficSegEl) {
+      const shownSegs = state.layers.traffic ? trafficRes.totalSegments : 0;
+      trafficSegEl.textContent = `${shownSegs} / ${trafficRes.totalSegments}`;
     }
+
+    const trafficFlowEl = document.getElementById("stat-traffic-flow");
+    if (trafficFlowEl) {
+      if (!state.layers.traffic || activeTrafficSegments.length === 0) {
+        trafficFlowEl.textContent = "Hidden";
+      } else {
+        const estClock = epochToEstString(trafficRes.evalEpoch).slice(11, 16);
+        const summary = activeTrafficSegments
+          .map((s) => `${s.speed_kmh}km/h`)
+          .join(" · ");
+        trafficFlowEl.textContent = `${estClock} EST (${summary})`;
+      }
+    }
+  } else {
+    state.filtered.activeTrafficSegments = [];
   }
+
+  const showRightDrawer =
+    (state.available.wlc && state.layers.wlc) ||
+    (state.available.radar && state.layers.radar) ||
+    (state.available.collars && state.layers.collars);
 
   const rightDrawer = document.getElementById("right-drawer");
   if (rightDrawer) {
-    rightDrawer.hidden = !(
-      state.layers.wlc ||
-      state.layers.radar ||
-      state.layers.collars
-    );
+    rightDrawer.hidden = !showRightDrawer;
+  }
+  const workspaceLayout = document.querySelector(".workspace-layout");
+  if (workspaceLayout) {
+    workspaceLayout.classList.toggle("right-hidden", !showRightDrawer);
   }
 
   // Redraw high-density sprite-stamped 2D canvas overlay

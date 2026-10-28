@@ -54,7 +54,9 @@
           <h2 class="section-title">Datasets</h2>
         </div>
         <div class="layer-list">
-          <label for="toggle-layer-wlc" class="layer-toggle-row">
+          <div id="datasets-empty-msg" class="datasets-empty-msg" hidden>No datasets loaded.</div>
+
+          <label id="layer-row-wlc" for="toggle-layer-wlc" class="layer-toggle-row" hidden>
             <input type="checkbox" id="toggle-layer-wlc" class="visually-hidden" checked>
             <span class="layer-meta">
               <span class="layer-name">WLC Syslogs</span>
@@ -75,7 +77,7 @@
             </span>
           </label>
 
-          <label for="toggle-layer-radar" class="layer-toggle-row">
+          <label id="layer-row-radar" for="toggle-layer-radar" class="layer-toggle-row" hidden>
             <input type="checkbox" id="toggle-layer-radar" class="visually-hidden" checked>
             <span class="layer-meta">
               <span class="layer-name">CYOW Tower Radar</span>
@@ -96,7 +98,7 @@
             </span>
           </label>
 
-          <label for="toggle-layer-collars" class="layer-toggle-row">
+          <label id="layer-row-collars" for="toggle-layer-collars" class="layer-toggle-row" hidden>
             <input type="checkbox" id="toggle-layer-collars" class="visually-hidden" checked>
             <span class="layer-meta">
               <span class="layer-name">Collar &amp; Buoy Telemetry</span>
@@ -117,14 +119,14 @@
             </span>
           </label>
 
-          <label for="toggle-layer-traffic" class="layer-toggle-row">
+          <label id="layer-row-traffic" for="toggle-layer-traffic" class="layer-toggle-row" hidden>
             <input type="checkbox" id="toggle-layer-traffic" class="visually-hidden" checked>
             <span class="layer-meta">
-              <span class="layer-name">Road Traffic (Sample)</span>
+              <span class="layer-name">Road Traffic</span>
               <span class="layer-kv-list">
                 <span class="layer-kv-row">
                   <span class="layer-kv-key">Source:</span>
-                  <span class="layer-kv-val">road_traffic_sample.json</span>
+                  <span id="stat-traffic-source" class="layer-kv-val">road_traffic.json</span>
                 </span>
                 <span class="layer-kv-row">
                   <span class="layer-kv-key">Segments:</span>
@@ -152,40 +154,40 @@
 
     <!-- Full-Bleed Map Stage (Center) -->
     <section class="map-stage" aria-label="Interactive Google Map">
-      <div class="map-legend-overlay">
-        <div class="legend-item">
+      <div id="map-legend" class="map-legend-overlay" hidden>
+        <div class="legend-item" data-legend-layer="wlc" hidden>
           <span class="legend-swatch" style="background:#ef4444;"></span>
           <span>AP (GTV2 Spike / Warn)</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="wlc" hidden>
           <span class="legend-swatch" style="background:#10b981;"></span>
           <span>AP (Nominal)</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="radar" hidden>
           <span class="legend-swatch" style="background:#06b6d4;"></span>
           <span>Radar: Primary (BIO_FLOCK)</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="radar" hidden>
           <span class="legend-swatch" style="background:#10b981;"></span>
           <span>Radar: VFR / Heli / Seaplane</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="radar" hidden>
           <span class="legend-swatch" style="background:#a855f7;"></span>
           <span>Radar: Commercial IFR</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="radar" hidden>
           <span class="legend-swatch" style="background:#ec4899;"></span>
           <span>Radar: Weather</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="collars" hidden>
           <span class="legend-swatch" style="background:#facc15;"></span>
           <span>CSV: GTV2 Collar</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="collars" hidden>
           <span class="legend-swatch" style="background:#f97316;"></span>
           <span>CSV: River Buoy</span>
         </div>
-        <div class="legend-item">
+        <div class="legend-item" data-legend-layer="traffic" hidden>
           <span class="legend-swatch" style="background:linear-gradient(90deg,#22c55e 0 33%,#f59e0b 33% 66%,#ef4444 66% 100%);"></span>
           <span>Traffic: Fast / Mod / Heavy</span>
         </div>
@@ -194,7 +196,7 @@
       <div id="map-canvas" role="application" aria-label="Ottawa River Facility Map"></div>
 
       <!-- Floating Bottom Timeline Scrubber Bar -->
-      <div id="timeline-scrubber-bar" class="map-timeline-overlay" role="region" aria-label="Timeline Scrubber Controls">
+      <div id="timeline-scrubber-bar" class="map-timeline-overlay" role="region" aria-label="Timeline Scrubber Controls" hidden>
         <div class="timeline-header-row">
           <div class="timeline-transport">
             <button type="button" id="btn-step-back" class="timeline-icon-btn" title="Step Window Backward" aria-label="Step Window Backward">⏮</button>
@@ -265,7 +267,7 @@
     </section>
 
     <!-- Right Collapsible Drawer: Dataset Detail Boxes (Flights, Hardware Groups, Filtered WLC Syslogs) -->
-    <div id="right-drawer" class="pane-drawer right-drawer">
+    <div id="right-drawer" class="pane-drawer right-drawer" hidden>
       <button
         type="button"
         id="btn-collapse-right"
@@ -276,7 +278,7 @@
       >▶</button>
       <aside id="right-sidebar" class="right-panel scrollable-panel" aria-label="Dataset Detail Filters and Feeds">
         <!-- CYOW Radar Flights Selector Box (Shown when yow_tower_radar.xml is enabled) -->
-        <section id="radar-flights-section" class="panel-section">
+        <section id="radar-flights-section" class="panel-section" hidden>
           <div class="section-header">
             <h2 class="section-title">CYOW Radar Flights</h2>
             <div style="display:flex;gap:0.35rem;">
@@ -288,7 +290,7 @@
         </section>
 
         <!-- Collar & Buoy Hardware Groups Box (Shown when gtv2_collar_telemetry.csv is enabled) -->
-        <section id="collar-hw-section" class="panel-section">
+        <section id="collar-hw-section" class="panel-section" hidden>
           <div class="section-header">
             <h2 class="section-title">Telemetry Hardware (collar_hw)</h2>
             <div style="display:flex;gap:0.35rem;">
@@ -300,7 +302,7 @@
         </section>
 
         <!-- WLC Syslog Feed (Shown when wlc_syslog.log is enabled) -->
-        <section id="wlc-syslog-section" class="panel-section">
+        <section id="wlc-syslog-section" class="panel-section" hidden>
           <div class="section-header">
             <h2 class="section-title">Filtered WLC Syslog Sample</h2>
             <span id="syslog-count-badge" class="layer-badge">0 events</span>

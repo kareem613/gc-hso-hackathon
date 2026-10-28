@@ -34,13 +34,13 @@ Run the lifecycle scripts in order from the repository root:
 # 5. Upload local ./datasets/* files into gs://<PROJECT_ID>-datasets/
 ./scripts/upload-datasets.sh
 
-# 6. Forward http://localhost:8080 to the Kubernetes service
+# 6. Forward http://localhost:8090 to the Kubernetes service (override with --port <port>)
 ./scripts/port-forward.sh
 ```
 
-Open `http://localhost:8080` in your browser.
+Open `http://localhost:8090` in your browser.
 
-*(For local static development without GKE, run `./scripts/ensure-maps-key.sh` once to enable Maps JS and generate `.env`.)*
+*(For local development without GKE, run `./scripts/run-local.sh` to serve the app on `http://localhost:8080`, or pass `--port <port>` to override.)*
 
 ## Teardown
 

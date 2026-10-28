@@ -1,3 +1,3 @@
-datasets/
+datasets/gtv2_collar_telemetry.csv
 .env
 k8s/config/infra.env

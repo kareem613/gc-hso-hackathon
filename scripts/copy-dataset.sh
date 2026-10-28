@@ -61,6 +61,11 @@ for src_file in "${FILES[@]}"; do
   base_name="$(basename "${src_file}")"
   [[ "${base_name}" == "urls.md" || "${base_name}" == "test_llm_prompt.md" ]] && continue
   dest_name="${base_name/_core./.}"
-  cp -f "${src_file}" "${DEST_DIR}/${dest_name}"
-  echo "Copied ${SELECTED}/${base_name} -> datasets/${dest_name}"
+  if [[ "${dest_name}" == "incident_briefing.md" ]]; then
+    cp -f "${src_file}" "${REPO_ROOT}/${dest_name}"
+    echo "Copied ${SELECTED}/${base_name} -> ${dest_name}"
+  else
+    cp -f "${src_file}" "${DEST_DIR}/${dest_name}"
+    echo "Copied ${SELECTED}/${base_name} -> datasets/${dest_name}"
+  fi
 done

@@ -9,7 +9,7 @@
  */
 export class DataReader {
   /**
-   * @returns {Promise<{ minEpoch: number, maxEpoch: number }>}
+   * @returns {Promise<{ hasData: boolean, minEpoch: number, maxEpoch: number }>}
    */
   async getTimelineBounds() {
     throw new Error("DataReader.getTimelineBounds() must be implemented by subclass");
@@ -31,6 +31,7 @@ export class DataReader {
   /**
    * @param {{ startEpoch?: number, endEpoch?: number }} [window]
    * @returns {Promise<{
+   *   available: boolean,
    *   events: Array<Object>,
    *   totalEvents: number
    * }>}
@@ -42,6 +43,7 @@ export class DataReader {
   /**
    * @param {{ startEpoch?: number, endEpoch?: number }} [window]
    * @returns {Promise<{
+   *   available: boolean,
    *   tracks: Array<Object>,
    *   totalTracks: number,
    *   totalPings: number
@@ -54,6 +56,7 @@ export class DataReader {
   /**
    * @param {{ startEpoch?: number, endEpoch?: number }} [window]
    * @returns {Promise<{
+   *   available: boolean,
    *   points: Array<Object>,
    *   totalPoints: number,
    *   hardwareGroups: Array<{
@@ -73,6 +76,8 @@ export class DataReader {
   /**
    * @param {{ startEpoch?: number, endEpoch?: number }} [window]
    * @returns {Promise<{
+   *   available: boolean,
+   *   sourceFile: string,
    *   segments: Array<Object>,
    *   totalSegments: number,
    *   evalEpoch: number
@@ -120,6 +125,7 @@ function findEpochRangeIndices(sortedArr, startEp, endEp) {
 }
 
 function parseWlcSyslog(text) {
+  if (!text || !text.trim()) return [];
   const lines = text.trim().split(/\r?\n/);
   const events = [];
   for (const line of lines) {
@@ -165,6 +171,7 @@ function parseWlcSyslog(text) {
 }
 
 function parseRadarXml(xmlText) {
+  if (!xmlText || !xmlText.trim()) return [];
   const parser = new DOMParser();
   const doc = parser.parseFromString(xmlText, "application/xml");
   const trackEls = Array.from(doc.querySelectorAll("Track"));
@@ -218,6 +225,7 @@ function parseRadarXml(xmlText) {
 }
 
 function parseCollarCsv(csvText) {
+  if (!csvText || !csvText.trim()) return [];
   const lines = csvText.trim().split(/\r?\n/);
   const rows = [];
   let lastTsRaw = "";
@@ -318,6 +326,11 @@ function parseIncidentBriefing(mdText, wlcEvents) {
     for (const m of apMatches) {
       outdoorSet.add(m[1]);
     }
+  }
+  if (outdoorSet.size === 0) {
+    outdoorSet.add("AP-West-Gate");
+    outdoorSet.add("AP-Central-Courtyard");
+    outdoorSet.add("AP-East-Pavilion");
   }
 
   const seenAps = new Set();
@@ -479,6 +492,10 @@ export class FileDataReader extends DataReader {
           if (optional) return "";
           throw new Error(`HTTP ${res.status} fetching ${url}`);
         }
+        const contentType = res.headers.get("content-type") || "";
+        if (optional && contentType.includes("text/html")) {
+          return "";
+        }
         return await res.text();
       } catch (err) {
         if (optional) return "";
@@ -486,28 +503,35 @@ export class FileDataReader extends DataReader {
       }
     };
 
-    const [briefText, wlcText, radarText, collarText, trafficText] =
+    let trafficSourceFile = "road_traffic.json";
+    const [wlcText, radarText, collarText, trafficText] =
       await Promise.all([
-        fetchText(`${base}/incident_briefing.md`, true),
-        fetchText(`${base}/wlc_syslog.log`),
-        fetchText(`${base}/yow_tower_radar.xml`),
-        fetchText(`${base}/gtv2_collar_telemetry.csv`),
+        fetchText(`${base}/wlc_syslog.log`, true),
+        fetchText(`${base}/yow_tower_radar.xml`, true),
+        fetchText(`${base}/gtv2_collar_telemetry.csv`, true),
         (async () => {
           for (const name of ["road_traffic.json", "road_traffic_sample.json"]) {
             const txt = await fetchText(`${base}/${name}`, true);
-            if (txt) return txt;
+            if (txt) {
+              trafficSourceFile = name;
+              return txt;
+            }
           }
           return "";
         })(),
       ]);
 
     const wlcEvents = parseWlcSyslog(wlcText);
-    const facilityBriefing = parseIncidentBriefing(briefText, wlcEvents);
+    const hasWlc = wlcEvents.length > 0;
+    const facilityBriefing = parseIncidentBriefing("", wlcEvents);
     const trafficSegments = parseTrafficJson(trafficText);
+    const hasTraffic = trafficSegments.length > 0;
     await yieldToMain();
     const radarTracks = parseRadarXml(radarText);
+    const hasRadar = radarTracks.length > 0;
     await yieldToMain();
     const collarPoints = parseCollarCsv(collarText);
+    const hasCollarTelemetry = collarPoints.length > 0;
 
     let totalRadarPings = 0;
     for (const tr of radarTracks) {
@@ -548,7 +572,7 @@ export class FileDataReader extends DataReader {
       return a.hw.localeCompare(b.hw);
     });
 
-    // Compute global timeline bounds across all datasets
+    // Compute global timeline bounds across all available datasets
     let minEpoch = Infinity;
     let maxEpoch = -Infinity;
 
@@ -566,14 +590,35 @@ export class FileDataReader extends DataReader {
       minEpoch = Math.min(minEpoch, collarPoints[0].epoch);
       maxEpoch = Math.max(maxEpoch, collarPoints[collarPoints.length - 1].epoch);
     }
+    for (const seg of trafficSegments) {
+      if (seg.snapshots.length) {
+        minEpoch = Math.min(minEpoch, seg.snapshots[0].epoch);
+        maxEpoch = Math.max(maxEpoch, seg.snapshots[seg.snapshots.length - 1].epoch);
+      }
+    }
+
+    const hasAnyDataset = hasWlc || hasRadar || hasCollarTelemetry || hasTraffic;
+    if (!Number.isFinite(minEpoch) || !Number.isFinite(maxEpoch)) {
+      const nowEpoch = Math.floor(Date.now() / 1000);
+      minEpoch = nowEpoch - 3600;
+      maxEpoch = nowEpoch;
+    } else if (maxEpoch <= minEpoch) {
+      maxEpoch = minEpoch + 60;
+    }
 
     this.#cache = {
+      hasAnyDataset,
       facilityBriefing,
+      hasWlc,
       wlcEvents,
+      hasRadar,
       radarTracks,
       totalRadarPings,
+      hasCollarTelemetry,
       collarPoints,
       collarHwGroups,
+      hasTraffic,
+      trafficSourceFile,
       trafficSegments,
       minEpoch,
       maxEpoch,
@@ -585,6 +630,7 @@ export class FileDataReader extends DataReader {
   async getTimelineBounds() {
     const cache = await this.#ensureLoaded();
     return {
+      hasData: cache.hasAnyDataset,
       minEpoch: cache.minEpoch,
       maxEpoch: cache.maxEpoch,
     };
@@ -603,6 +649,7 @@ export class FileDataReader extends DataReader {
       endEpoch
     );
     return {
+      available: cache.hasWlc,
       events: cache.wlcEvents.slice(startIdx, endIdx),
       totalEvents: cache.wlcEvents.length,
     };
@@ -628,6 +675,7 @@ export class FileDataReader extends DataReader {
     });
 
     return {
+      available: cache.hasRadar,
       tracks,
       totalTracks: cache.radarTracks.length,
       totalPings: cache.totalRadarPings,
@@ -658,6 +706,7 @@ export class FileDataReader extends DataReader {
     });
 
     return {
+      available: cache.hasCollarTelemetry,
       points: cache.collarPoints.slice(cStart, cEnd),
       totalPoints: cache.collarPoints.length,
       hardwareGroups,
@@ -675,6 +724,8 @@ export class FileDataReader extends DataReader {
     );
 
     return {
+      available: cache.hasTraffic,
+      sourceFile: cache.trafficSourceFile,
       segments,
       totalSegments: cache.trafficSegments.length,
       evalEpoch,

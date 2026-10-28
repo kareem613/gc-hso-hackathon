@@ -5,6 +5,7 @@
 .gitignore
 .env
 README.md
+incident_briefing.md
 datasets/
 k8s/
 scripts/

@@ -1,0 +1,1400 @@
+{
+  "scrape_metadata": {
+    "source": "Carleton-uOttawa Maker & Embedded Systems Forum (discourse.ottawahackers.ca)",
+    "scraped_at_utc": "2026-10-13T14:30:00Z",
+    "total_threads_scraped": 45,
+    "forum_version": "v3.2.1-prod"
+  },
+  "threads": [
+    {
+      "thread_id": "th_9042",
+      "subforum": "uOttawa-Carleton Joint Embedded & Wildlife Telemetry Lab",
+      "title": "Urgent: ESP32 brownout & active Wi-Fi scan loop on GTV2 field batch",
+      "author": "bird_nerd_ee",
+      "posted_relative": "Posted 7 hours ago",
+      "created_at_utc": "2026-10-13T07:18:22Z",
+      "views": 412,
+      "replies_count": 3,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "bird_nerd_ee",
+          "timestamp_utc": "2026-10-13T07:18:22Z",
+          "posted_relative": "Posted 7 hours ago",
+          "body": "Guys, I need urgent eyes on telemetry power stats. We deployed the batch of 200 Goose-Track-v2 (GTV2) solar neck collars across 4 Shirleys Bay Branta canadensis study flocks on Sunday Oct 11. They were supposed to enter ultra-low-power deep sleep (ULP) between scheduled hourly fixes, but our receiver base stations are showing severe voltage droop — several tags are dipping below 2.9V brownout reset levels whenever the flocks are in transit. Is anyone else seeing abnormal power consumption on the field units?"
+        },
+        {
+          "post_number": 2,
+          "author": "rf_grad_student",
+          "timestamp_utc": "2026-10-13T08:05:41Z",
+          "posted_relative": "Posted 6 hours ago",
+          "body": "Wait, did you build the firmware from the `release/prod-v2.1` branch or from your local working copy before flashing? Remember the ESP32 modules (Espressif OUI 24:0A:C4) draw ~240mA continuous if the 802.11 b/g/n radio calibration loop is enabled. Did you verify that Wi-Fi station mode and the high-rate GPS debug logging were completely compiled out with `-DPRODUCTION_BUILD=1`?"
+        },
+        {
+          "post_number": 3,
+          "author": "bird_nerd_ee",
+          "timestamp_utc": "2026-10-13T08:34:10Z",
+          "posted_relative": "Posted 6 hours ago",
+          "body": "Oh god. I feel sick. I just checked my terminal bash history on the flashing station. I flashed `test_harness_debug.bin` onto all 200 collars (GTV2-001 through GTV2-200)!\n\nIn that debug firmware:\n1. U-blox MAX-M8Q GPS logging is locked into high-rate 15-second debug mode instead of 1 hour.\n2. The Wi-Fi radio is NOT disabled. Active scanning is running in a continuous task loop with DHCP hostnames hardcoded as GTV2-001 to GTV2-200 (OUI 24:0A:C4).\n3. Worst of all, the auto-connect wildcard callback from our campus NRC field test was left in: any open AP matching the SSID prefix 'GOV_*' triggers an automatic 802.11 association request!\n\nWhen the flocks migrate along the Ottawa River at 80 km/h, 50 collars per flock (200 collars total across the 4 study flocks) are hitting every federal research facility and government building along the riverfront blasting active probe requests and association attempts! What do we do?!"
+        },
+        {
+          "post_number": 4,
+          "author": "lab_pi_chen",
+          "timestamp_utc": "2026-10-13T09:12:55Z",
+          "posted_relative": "Posted 5 hours ago",
+          "body": "Do not panic. We can't recapture 200 wild birds in the middle of migration corridor flight, so we have to let the solar cells recharge them and track the telemetry stream as they move downriver. Our shoreline LoRa/cellular base station receivers are still auto-syncing the raw collar CSV logs into our public student storage bucket:\nhttps://student-tracking-project.storage.googleapis.com/full-20261027-233740/gtv2_collar_telemetry.csv?x-goog-signature=af289a4a13cea5c3393f96bae4120c922c7ebdc343893856e3c44a8b9a8d20a7572b130e2ab5f4e0806f326283b02ecd4edbcc1ee02cbbd23829abcb18b70bf319b2790ef891ec7f75fda906db11ed7a3d2e12d3e3741d2805718d083b5d124482c6f440a1396bdeaf299d44cb9295345b16c38e7a1bc2ef81b8668ef3800a2bc20f656f5e10100ed4677768dbf577ec1185c24cd08c77e6711d0a04744f7dabec5ffffd59d511a74f14cab10dd0edd2ce7de52b3d09de35da46cdbbd72152730074a9399dbbab420842e3098ad2509fe527a56f4ddcfb7f099aa066d3be68000dc30f7307b48f44ed4b1074ee7d1cbc3db03406ac56450a5e5e57b2285fc2e2&x-goog-algorithm=GOOG4-RSA-SHA256&x-goog-credential=sim-worker%40sim-batch-demo-2.iam.gserviceaccount.com%2F20261027%2Fnorthamerica-northeast2%2Fstorage%2Fgoog4_request&x-goog-date=20261027T234036Z&x-goog-expires=43200&x-goog-signedheaders=host someone pull the CSV telemetry dump right now to verify yesterday's flyover trajectories across the 4 study flocks (Oct 12 ~06:42, ~08:15, ~12:30, and ~16:45 EST)? We need to verify whether the tags browned out during flight or if they successfully logged fixes across the river corridor."
+        }
+      ],
+      "body": "[bird_nerd_ee - 2026-10-13T07:18:22Z]:\nGuys, I need urgent eyes on telemetry power stats. We deployed the batch of 200 Goose-Track-v2 (GTV2) solar neck collars across 4 Shirleys Bay Branta canadensis study flocks on Sunday Oct 11. They were supposed to enter ultra-low-power deep sleep (ULP) between scheduled hourly fixes, but our receiver base stations are showing severe voltage droop — several tags are dipping below 2.9V brownout reset levels whenever the flocks are in transit. Is anyone else seeing abnormal power consumption on the field units?\n\n[rf_grad_student - 2026-10-13T08:05:41Z]:\nWait, did you build the firmware from the `release/prod-v2.1` branch or from your local working copy before flashing? Remember the ESP32 modules (Espressif OUI 24:0A:C4) draw ~240mA continuous if the 802.11 b/g/n radio calibration loop is enabled. Did you verify that Wi-Fi station mode and the high-rate GPS debug logging were completely compiled out with `-DPRODUCTION_BUILD=1`?\n\n[bird_nerd_ee - 2026-10-13T08:34:10Z]:\nOh god. I feel sick. I just checked my terminal bash history on the flashing station. I flashed `test_harness_debug.bin` onto all 200 collars (GTV2-001 through GTV2-200)!\n\nIn that debug firmware:\n1. U-blox MAX-M8Q GPS logging is locked into high-rate 15-second debug mode instead of 1 hour.\n2. The Wi-Fi radio is NOT disabled. Active scanning is running in a continuous task loop with DHCP hostnames hardcoded as GTV2-001 to GTV2-200 (OUI 24:0A:C4).\n3. Worst of all, the auto-connect wildcard callback from our campus NRC field test was left in: any open AP matching the SSID prefix 'GOV_*' triggers an automatic 802.11 association request!\n\nWhen the flocks migrate along the Ottawa River at 80 km/h, 50 collars per flock (200 collars total across the 4 study flocks) are hitting every federal research facility and government building along the riverfront blasting active probe requests and association attempts! What do we do?!\n\n[lab_pi_chen - 2026-10-13T09:12:55Z]:\nDo not panic. We can't recapture 200 wild birds in the middle of migration corridor flight, so we have to let the solar cells recharge them and track the telemetry stream as they move downriver. Our shoreline LoRa/cellular base station receivers are still auto-syncing the raw collar CSV logs into our public student storage bucket:\nhttps://student-tracking-project.storage.googleapis.com/full-20261027-233740/gtv2_collar_telemetry.csv?x-goog-signature=af289a4a13cea5c3393f96bae4120c922c7ebdc343893856e3c44a8b9a8d20a7572b130e2ab5f4e0806f326283b02ecd4edbcc1ee02cbbd23829abcb18b70bf319b2790ef891ec7f75fda906db11ed7a3d2e12d3e3741d2805718d083b5d124482c6f440a1396bdeaf299d44cb9295345b16c38e7a1bc2ef81b8668ef3800a2bc20f656f5e10100ed4677768dbf577ec1185c24cd08c77e6711d0a04744f7dabec5ffffd59d511a74f14cab10dd0edd2ce7de52b3d09de35da46cdbbd72152730074a9399dbbab420842e3098ad2509fe527a56f4ddcfb7f099aa066d3be68000dc30f7307b48f44ed4b1074ee7d1cbc3db03406ac56450a5e5e57b2285fc2e2&x-goog-algorithm=GOOG4-RSA-SHA256&x-goog-credential=sim-worker%40sim-batch-demo-2.iam.gserviceaccount.com%2F20261027%2Fnorthamerica-northeast2%2Fstorage%2Fgoog4_request&x-goog-date=20261027T234036Z&x-goog-expires=43200&x-goog-signedheaders=host someone pull the CSV telemetry dump right now to verify yesterday's flyover trajectories across the 4 study flocks (Oct 12 ~06:42, ~08:15, ~12:30, and ~16:45 EST)? We need to verify whether the tags browned out during flight or if they successfully logged fixes across the river corridor."
+    },
+    {
+      "thread_id": "th_9011",
+      "subforum": "Ottawa FPV & Drone Racers",
+      "title": "Weekend FPV Quadcopter Racing Meetup - Nepean Sportsplex",
+      "author": "rotor_rebel_613",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T20:15:00Z",
+      "views": 530,
+      "replies_count": 3,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "rotor_rebel_613",
+          "timestamp_utc": "2026-10-11T20:15:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Awesome turnout at the Nepean Sportsplex soccer fields today (lat 45.331, lon -75.764)! We had 20 pilots running 5-inch 6S freestyle quads through the airgates between 17:30 and 19:30 UTC (Sunday afternoon 1:30 PM local). But Raceband 4 and Raceband 7 were getting terrible analog video breakup on turn 3 near the arena floodlights. Anyone else experience video transmitter (VTx) desync?"
+        },
+        {
+          "post_number": 2,
+          "author": "fpv_cadet",
+          "timestamp_utc": "2026-10-11T21:04:12Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Yeah my SpeedyBee 5.8 GHz VTx was dropping video every time I hit the apex on gate 4. I think someone was transmitting on 5800 MHz at 1W output without checking the frequency matrix board. Remember we agreed to cap power at 25mW pit mode or 200mW race mode!"
+        },
+        {
+          "post_number": 3,
+          "author": "prop_wash_pilot",
+          "timestamp_utc": "2026-10-11T21:45:33Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Not to mention the Sportsplex maintenance shed has massive metal cladding reflecting 5.8GHz multipath. Next Sunday let's move the gates over towards the baseball diamonds further away from the parking lot. Also, whoever left the puffed 1300mAh Tattu LiPo on the picnic table, please dispose of it safely in the battery bin."
+        }
+      ],
+      "body": "[rotor_rebel_613]: Awesome turnout at the Nepean Sportsplex soccer fields today (lat 45.331, lon -75.764)! We had 20 pilots running 5-inch 6S freestyle quads through the airgates between 17:30 and 19:30 UTC on Sunday. Raceband 4 and 7 were getting terrible analog video breakup on turn 3.\n\n[fpv_cadet]: SpeedyBee 5.8 GHz VTx dropping video on gate 4. Someone was blasting 1W on 5800 MHz.\n\n[prop_wash_pilot]: Multipath from the maintenance shed. Let's move the gates away from the parking lot next week."
+    },
+    {
+      "thread_id": "th_9028",
+      "subforum": "Carleton University CS & Computer Systems",
+      "title": "COMP 4108 Assignment 2: 802.11 Deauth Capture inside Faraday Basement Lab",
+      "author": "netsec_noob",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T19:30:00Z",
+      "views": 389,
+      "replies_count": 3,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "netsec_noob",
+          "timestamp_utc": "2026-10-12T19:30:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Working on COMP 4108 (Wireless Security) assignment 2 in Herzberg building basement room HP 4125. We're testing Scapy scripts to capture 802.11 deauth frames against the lab target AP. Our assigned Raspberry Pi 4 lab units (NIC MACs starting with B8:27:EB) are broadcasting on the isolated lab network SSID 'COMP4108_LAB'. Does anyone know if our packet injection could be leaking onto the campus-wide Carleton Wi-Fi?"
+        },
+        {
+          "post_number": 2,
+          "author": "ta_dave_w",
+          "timestamp_utc": "2026-10-12T20:05:15Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "TA here. Absolutely not. Room HP 4125 is an RF-shielded Faraday enclosure with double copper-mesh screening in the walls and ceiling rated for >85 dB attenuation between 500 MHz and 6 GHz. Nothing you transmit on channel 6 or channel 36 escapes that room, and Carleton ITS monitors rogue frames outside. Just make sure your Scapy filter specifies `wlan.addr2 == b8:27:eb:*` so you only log lab Pi frames."
+        },
+        {
+          "post_number": 3,
+          "author": "packet_hacker22",
+          "timestamp_utc": "2026-10-12T20:42:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Thanks Dave! Also for question 3b, remember to enable monitor mode using `airmon-ng start wlan0` before launching your Python sniffing script, otherwise the kernel drops all raw management 802.11 frames."
+        }
+      ],
+      "body": "[netsec_noob]: Working on COMP 4108 in HP 4125 basement lab testing 802.11 deauth captures with Raspberry Pi 4 (MAC B8:27:EB) against SSID COMP4108_LAB. Are our packets leaking onto campus?\n\n[ta_dave_w]: TA here. Room HP 4125 is a certified Faraday cage with 85dB RF attenuation. Nothing escapes. Keep your scripts scoped to B8:27:EB and COMP4108_LAB.\n\n[packet_hacker22]: Don't forget monitor mode with airmon-ng."
+    },
+    {
+      "thread_id": "th_9035",
+      "subforum": "Ottawa River Boating & Marine Tech",
+      "title": "Terrible Wi-Fi signal at Britannia Yacht Club D-dock slips",
+      "author": "sailor_dan_ott",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T14:20:00Z",
+      "views": 275,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "sailor_dan_ott",
+          "timestamp_utc": "2026-10-11T14:20:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Anyone else keeping their sailboat on D-dock at Britannia Yacht Club experiencing constant disconnects from 'BYC_MARINA'? The signal drops completely as soon as you get past slip 12. My tablet shows -84 dBm and then disconnects. Did the club change the outdoor AP antennas on the clubhouse roof?"
+        },
+        {
+          "post_number": 2,
+          "author": "dockmaster_rick",
+          "timestamp_utc": "2026-10-11T15:10:45Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Hi Dan. The high winds last Thursday knocked the Ubiquiti UniFi AC Mesh antenna out of alignment on the harbourmaster mast. It was pointing 30 degrees south towards the dinghy park instead of the outer docks. I climbed the ladder this morning and tightened the U-bolts. You should see -68 dBm across D-dock now."
+        },
+        {
+          "post_number": 3,
+          "author": "keelboat_kevin",
+          "timestamp_utc": "2026-10-11T16:02:18Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Confirmed, working much better out by slip D-20. Someone at the bar was joking if we could hop on the government research office Wi-Fi downriver, but that facility is over 3 kilometers east of Britannia Bay behind the treeline, so obviously impossible. Glad our local marina mast is fixed!"
+        }
+      ],
+      "body": "[sailor_dan_ott]: Constant disconnects from BYC_MARINA on D-dock at Britannia Yacht Club. Signal drops past slip 12.\n\n[dockmaster_rick]: High winds shifted the Ubiquiti UniFi AC Mesh antenna. Realighed this morning.\n\n[keelboat_kevin]: Fixed now. Downriver research facility is 3 km away and out of reach anyway."
+    },
+    {
+      "thread_id": "th_8950",
+      "subforum": "3D Printing & Rapid Prototyping",
+      "title": "Prusa MK4 Nextruder continuous heat creep with carbon fiber PETG",
+      "author": "filament_fiend",
+      "posted_relative": "Posted 22 hours ago",
+      "created_at_utc": "2026-10-12T16:45:00Z",
+      "views": 400,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "filament_fiend",
+          "timestamp_utc": "2026-10-12T16:45:00Z",
+          "posted_relative": "Posted 22 hours ago",
+          "body": "Anyone else running Polymaker PETG-CF on the MK4? After about 3 hours of printing a drone frame, the filament swells right above the nozzle break and locks the planetary gearbox."
+        },
+        {
+          "post_number": 2,
+          "author": "print_doctor_bob",
+          "timestamp_utc": "2026-10-12T16:45:00Z",
+          "posted_relative": "Posted 22 hours ago",
+          "body": "Carbon fiber filaments conduct heat upward into the heatbreak much faster. Increase your fan speed to 100% and drop extrusion temp from 255C to 240C. Also turn off stealth mode."
+        },
+        {
+          "post_number": 3,
+          "author": "cad_monkey",
+          "timestamp_utc": "2026-10-12T16:45:00Z",
+          "posted_relative": "Posted 22 hours ago",
+          "body": "Seconded. I had to print a shroud mod for the 3010 fan to force more airflow across the heatsink fins."
+        }
+      ],
+      "body": "[filament_fiend]: Anyone else running Polymaker PETG-CF on the MK4? After about 3 hours of printing a drone frame, the filament swells right above the nozzle break and locks the planetary gearbox.\n\n[print_doctor_bob]: Carbon fiber filaments conduct heat upward into the heatbreak much faster. Increase your fan speed to 100% and drop extrusion temp from 255C to 240C. Also turn off stealth mode.\n\n[cad_monkey]: Seconded. I had to print a shroud mod for the 3010 fan to force more airflow across the heatsink fins."
+    },
+    {
+      "thread_id": "th_8951",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "STM32F401 I2C1 bus lockup during high-rate SHT31 sensor polling",
+      "author": "c_pointer_blues",
+      "posted_relative": "Posted 20 hours ago",
+      "created_at_utc": "2026-10-12T18:10:00Z",
+      "views": 401,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "c_pointer_blues",
+          "timestamp_utc": "2026-10-12T18:10:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "My STM32 Nucleo board freezes randomly inside HAL_I2C_Master_Transmit. SDA gets pulled low by the slave sensor and the hardware peripheral never generates a STOP condition."
+        },
+        {
+          "post_number": 2,
+          "author": "bare_metal_dan",
+          "timestamp_utc": "2026-10-12T18:10:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "Classic I2C bus lockup! You need to implement the standard 9-clock bitbang recovery routine on GPIO init before enabling the I2C peripheral to unstick the slave shift register."
+        },
+        {
+          "post_number": 3,
+          "author": "c_pointer_blues",
+          "timestamp_utc": "2026-10-12T18:10:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "That fixed it! Toggled SCL 9 times manually on startup and the sensor released SDA immediately."
+        }
+      ],
+      "body": "[c_pointer_blues]: My STM32 Nucleo board freezes randomly inside HAL_I2C_Master_Transmit. SDA gets pulled low by the slave sensor and the hardware peripheral never generates a STOP condition.\n\n[bare_metal_dan]: Classic I2C bus lockup! You need to implement the standard 9-clock bitbang recovery routine on GPIO init before enabling the I2C peripheral to unstick the slave shift register.\n\n[c_pointer_blues]: That fixed it! Toggled SCL 9 times manually on startup and the sensor released SDA immediately."
+    },
+    {
+      "thread_id": "th_8952",
+      "subforum": "IoT & Wireless Sensor Networks",
+      "title": "Dragino LPS8N LoRaWAN gateway in Kanata North dropping EU868 vs US915 sub-bands",
+      "author": "lora_enthusiast_ottawa",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T11:20:00Z",
+      "views": 402,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "lora_enthusiast_ottawa",
+          "timestamp_utc": "2026-10-12T11:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Setting up an outdoor gateway on a rooftop near March Road. My ChirpStack server is only seeing uplinks from nodes configured for US915 sub-band 2 (channels 8-15)."
+        },
+        {
+          "post_number": 2,
+          "author": "rf_grad_student",
+          "timestamp_utc": "2026-10-12T11:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "In Canada (ISED regulations), LoRaWAN operates on US915. Most North American networks like Helium and TTN standardize exclusively on FSB2 (903.9 - 905.3 MHz). If your nodes are broadcasting on sub-band 1, the gateway bandpass filter will attenuate them."
+        },
+        {
+          "post_number": 3,
+          "author": "iot_architect",
+          "timestamp_utc": "2026-10-12T11:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Double check your global_conf.json file in Semtech packet forwarder. Set radio_0 and radio_1 center frequencies to 904.3 and 905.0 MHz."
+        }
+      ],
+      "body": "[lora_enthusiast_ottawa]: Setting up an outdoor gateway on a rooftop near March Road. My ChirpStack server is only seeing uplinks from nodes configured for US915 sub-band 2 (channels 8-15).\n\n[rf_grad_student]: In Canada (ISED regulations), LoRaWAN operates on US915. Most North American networks like Helium and TTN standardize exclusively on FSB2 (903.9 - 905.3 MHz). If your nodes are broadcasting on sub-band 1, the gateway bandpass filter will attenuate them.\n\n[iot_architect]: Double check your global_conf.json file in Semtech packet forwarder. Set radio_0 and radio_1 center frequencies to 904.3 and 905.0 MHz."
+    },
+    {
+      "thread_id": "th_8953",
+      "subforum": "Robotics & Autonomous Systems",
+      "title": "ROS2 Humble RPLiDAR A2 dropping point cloud frames over USB-UART on Jetson Nano",
+      "author": "robot_rookie_cu",
+      "posted_relative": "Posted 16 hours ago",
+      "created_at_utc": "2026-10-12T22:30:00Z",
+      "views": 403,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "robot_rookie_cu",
+          "timestamp_utc": "2026-10-12T22:30:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "Building an autonomous differential drive robot for lab 4. The rplidar_node node crashes with 'Error, cannot retrieve scan data' every 30 seconds."
+        },
+        {
+          "post_number": 2,
+          "author": "nav2_master",
+          "timestamp_utc": "2026-10-12T22:30:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "Increase the Linux serial buffer depth with `setserial /dev/ttyUSB0 low_latency`. The default FTDI buffer driver introduces latency jitter that triggers the RPLiDAR SDK timeout."
+        },
+        {
+          "post_number": 3,
+          "author": "jetson_tinkerer",
+          "timestamp_utc": "2026-10-12T22:30:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "Also make sure you aren't powering the LiDAR motor from the Jetson's 5V rail — motor spinup draws 600mA and browns out the USB controller."
+        }
+      ],
+      "body": "[robot_rookie_cu]: Building an autonomous differential drive robot for lab 4. The rplidar_node node crashes with 'Error, cannot retrieve scan data' every 30 seconds.\n\n[nav2_master]: Increase the Linux serial buffer depth with `setserial /dev/ttyUSB0 low_latency`. The default FTDI buffer driver introduces latency jitter that triggers the RPLiDAR SDK timeout.\n\n[jetson_tinkerer]: Also make sure you aren't powering the LiDAR motor from the Jetson's 5V rail — motor spinup draws 600mA and browns out the USB controller."
+    },
+    {
+      "thread_id": "th_8954",
+      "subforum": "Carleton & uOttawa Engineering General",
+      "title": "SYSC 4001 Operating Systems midterm study group - virtual memory & page tables",
+      "author": "kernel_panic_carleton",
+      "posted_relative": "Posted 13 hours ago",
+      "created_at_utc": "2026-10-13T01:15:00Z",
+      "views": 404,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "kernel_panic_carleton",
+          "timestamp_utc": "2026-10-13T01:15:00Z",
+          "posted_relative": "Posted 13 hours ago",
+          "body": "Anyone studying for the SYSC 4001 midterm tomorrow? Reviewing inverted page tables vs multi-level hierarchical paging. Library 4th floor study room booked until midnight."
+        },
+        {
+          "post_number": 2,
+          "author": "thread_pool_dev",
+          "timestamp_utc": "2026-10-13T01:15:00Z",
+          "posted_relative": "Posted 13 hours ago",
+          "body": "Count me in. Can we go over the TLB miss penalty calculations and the second-chance FIFO page replacement algorithm?"
+        },
+        {
+          "post_number": 3,
+          "author": "coffee_coder",
+          "timestamp_utc": "2026-10-13T01:15:00Z",
+          "posted_relative": "Posted 13 hours ago",
+          "body": "Bringing Tim Hortons Timbits. See you guys on the 4th floor in 20 minutes."
+        }
+      ],
+      "body": "[kernel_panic_carleton]: Anyone studying for the SYSC 4001 midterm tomorrow? Reviewing inverted page tables vs multi-level hierarchical paging. Library 4th floor study room booked until midnight.\n\n[thread_pool_dev]: Count me in. Can we go over the TLB miss penalty calculations and the second-chance FIFO page replacement algorithm?\n\n[coffee_coder]: Bringing Tim Hortons Timbits. See you guys on the 4th floor in 20 minutes."
+    },
+    {
+      "thread_id": "th_8955",
+      "subforum": "Ottawa Maker Community & Hardware Swap",
+      "title": "FS: Rigol DS1054Z 50MHz 4-Channel Oscilloscope (unlocked to 100MHz) - $280 CAD",
+      "author": "scope_hoarder",
+      "posted_relative": "Posted 23 hours ago",
+      "created_at_utc": "2026-10-12T15:40:00Z",
+      "views": 405,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "scope_hoarder",
+          "timestamp_utc": "2026-10-12T15:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "Upgraded to a Siglent 1204X-E. Selling my trusty Rigol DS1054Z. Factory unlocked with 100MHz bandwidth, 24Mpts memory, and all protocol decoders (I2C, SPI, RS232). Includes 4 probes."
+        },
+        {
+          "post_number": 2,
+          "author": "eecs_sophomore",
+          "timestamp_utc": "2026-10-12T15:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "DM'd! Can pick up tomorrow at Bayview Yards or near Carleton campus."
+        },
+        {
+          "post_number": 3,
+          "author": "scope_hoarder",
+          "timestamp_utc": "2026-10-12T15:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "Sold pending pickup to eecs_sophomore!"
+        }
+      ],
+      "body": "[scope_hoarder]: Upgraded to a Siglent 1204X-E. Selling my trusty Rigol DS1054Z. Factory unlocked with 100MHz bandwidth, 24Mpts memory, and all protocol decoders (I2C, SPI, RS232). Includes 4 probes.\n\n[eecs_sophomore]: DM'd! Can pick up tomorrow at Bayview Yards or near Carleton campus.\n\n[scope_hoarder]: Sold pending pickup to eecs_sophomore!"
+    },
+    {
+      "thread_id": "th_8956",
+      "subforum": "Ham Radio & RF Engineering (Ottawa Amateur Radio Club)",
+      "title": "VE2REO Camp Fortune 144.390 APRS digipeater antenna maintenance complete",
+      "author": "va3_whiskey_delta",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T22:15:00Z",
+      "views": 406,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "va3_whiskey_delta",
+          "timestamp_utc": "2026-10-11T22:15:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "The VHF APRS digipeater at Camp Fortune (Gatineau Hills) had its coax replaced with 7/8 inch Heliax today. SWR is now 1.15:1 across 144-148 MHz."
+        },
+        {
+          "post_number": 2,
+          "author": "ve3_foxtrot_tango",
+          "timestamp_utc": "2026-10-11T22:15:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Awesome job crew! Gated 45 mobile packets all the way from Arnprior to Hawkesbury on 144.390 MHz today. Great coverage across the entire National Capital Region."
+        }
+      ],
+      "body": "[va3_whiskey_delta]: The VHF APRS digipeater at Camp Fortune (Gatineau Hills) had its coax replaced with 7/8 inch Heliax today. SWR is now 1.15:1 across 144-148 MHz.\n\n[ve3_foxtrot_tango]: Awesome job crew! Gated 45 mobile packets all the way from Arnprior to Hawkesbury on 144.390 MHz today. Great coverage across the entire National Capital Region."
+    },
+    {
+      "thread_id": "th_8957",
+      "subforum": "Renewable Energy & Off-Grid Tech",
+      "title": "Winterizing 400W off-grid solar array with Victron SmartSolar MPPT 100/30",
+      "author": "cottage_solar_guy",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T13:00:00Z",
+      "views": 407,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "cottage_solar_guy",
+          "timestamp_utc": "2026-10-12T13:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Prepping my remote cabin solar setup in Lanark County for freezing weather. 2x 200W Renogy monocrystalline panels wired in series into a Victron MPPT charging a 12V 200Ah LiFePO4 bank."
+        },
+        {
+          "post_number": 2,
+          "author": "offgrid_dan",
+          "timestamp_utc": "2026-10-12T13:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Make sure your BMS has low-temperature charge disconnect enabled! Charging lithium iron phosphate below 0C causes permanent lithium metal plating and destroys the cells."
+        },
+        {
+          "post_number": 3,
+          "author": "solar_gremlin",
+          "timestamp_utc": "2026-10-12T13:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "The Victron Smart Battery Sense Bluetooth probe will automatically communicate battery temperature to the MPPT and disable charging under 3C. Well worth the $45."
+        }
+      ],
+      "body": "[cottage_solar_guy]: Prepping my remote cabin solar setup in Lanark County for freezing weather. 2x 200W Renogy monocrystalline panels wired in series into a Victron MPPT charging a 12V 200Ah LiFePO4 bank.\n\n[offgrid_dan]: Make sure your BMS has low-temperature charge disconnect enabled! Charging lithium iron phosphate below 0C causes permanent lithium metal plating and destroys the cells.\n\n[solar_gremlin]: The Victron Smart Battery Sense Bluetooth probe will automatically communicate battery temperature to the MPPT and disable charging under 3C. Well worth the $45."
+    },
+    {
+      "thread_id": "th_8958",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "RP2040 PIO state machine for 8-channel logic analyzer sampling at 100Msps",
+      "author": "pico_wizard",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T09:45:00Z",
+      "views": 408,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "pico_wizard",
+          "timestamp_utc": "2026-10-12T09:45:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Wrote a tiny 4-instruction PIO assembly program on the Raspberry Pi Pico that captures GPIO 0-7 into the RX FIFO and triggers DMA directly into SRAM. Benchmarking against Sigrok/PulseView."
+        },
+        {
+          "post_number": 2,
+          "author": "register_shifter",
+          "timestamp_utc": "2026-10-12T09:45:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "That's brilliant! Are you doing double-buffering on the DMA channels to stream continuously over USB CDC?"
+        }
+      ],
+      "body": "[pico_wizard]: Wrote a tiny 4-instruction PIO assembly program on the Raspberry Pi Pico that captures GPIO 0-7 into the RX FIFO and triggers DMA directly into SRAM. Benchmarking against Sigrok/PulseView.\n\n[register_shifter]: That's brilliant! Are you doing double-buffering on the DMA channels to stream continuously over USB CDC?"
+    },
+    {
+      "thread_id": "th_8959",
+      "subforum": "Ottawa Maker Community & Hardware Swap",
+      "title": "Group buy: Gateron Oil King linear switches & custom POM plates for 65% boards",
+      "author": "clack_enthusiast",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T04:20:00Z",
+      "views": 409,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "clack_enthusiast",
+          "timestamp_utc": "2026-10-12T04:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Organizing a local Ottawa group buy to save on DHL shipping from KBDFans. Minimum order 70 switches per slot."
+        },
+        {
+          "post_number": 2,
+          "author": "thock_lover_613",
+          "timestamp_utc": "2026-10-12T04:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "In for 90 switches and one 65% FR4 plate! Can meet up downtown or near Tunney's Pasture."
+        },
+        {
+          "post_number": 3,
+          "author": "keeb_artisan",
+          "timestamp_utc": "2026-10-12T04:20:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Put me down for 110 switches. Are these the factory lubed nylon bottom housings?"
+        }
+      ],
+      "body": "[clack_enthusiast]: Organizing a local Ottawa group buy to save on DHL shipping from KBDFans. Minimum order 70 switches per slot.\n\n[thock_lover_613]: In for 90 switches and one 65% FR4 plate! Can meet up downtown or near Tunney's Pasture.\n\n[keeb_artisan]: Put me down for 110 switches. Are these the factory lubed nylon bottom housings?"
+    },
+    {
+      "thread_id": "th_8960",
+      "subforum": "Carleton University CS & Computer Systems",
+      "title": "COMP 3000 Assignment 1: fork() and execve() zombie process reaping",
+      "author": "linux_kernel_noob",
+      "posted_relative": "Posted 10 hours ago",
+      "created_at_utc": "2026-10-13T03:40:00Z",
+      "views": 410,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "linux_kernel_noob",
+          "timestamp_utc": "2026-10-13T03:40:00Z",
+          "posted_relative": "Posted 10 hours ago",
+          "body": "Why does `ps aux` show `<defunct>` next to my child processes in C? I called `fork()` in a loop to run worker tasks."
+        },
+        {
+          "post_number": 2,
+          "author": "sysprog_veteran",
+          "timestamp_utc": "2026-10-13T03:40:00Z",
+          "posted_relative": "Posted 10 hours ago",
+          "body": "When a child process exits, its exit status remains in the kernel process table until the parent reads it via `wait()` or `waitpid()`. Install a `SIGCHLD` signal handler or call `waitpid(-1, NULL, WNOHANG)`."
+        },
+        {
+          "post_number": 3,
+          "author": "linux_kernel_noob",
+          "timestamp_utc": "2026-10-13T03:40:00Z",
+          "posted_relative": "Posted 10 hours ago",
+          "body": "Added the SIGCHLD handler and the zombie entries disappeared immediately from top. Thank you!"
+        }
+      ],
+      "body": "[linux_kernel_noob]: Why does `ps aux` show `<defunct>` next to my child processes in C? I called `fork()` in a loop to run worker tasks.\n\n[sysprog_veteran]: When a child process exits, its exit status remains in the kernel process table until the parent reads it via `wait()` or `waitpid()`. Install a `SIGCHLD` signal handler or call `waitpid(-1, NULL, WNOHANG)`.\n\n[linux_kernel_noob]: Added the SIGCHLD handler and the zombie entries disappeared immediately from top. Thank you!"
+    },
+    {
+      "thread_id": "th_8961",
+      "subforum": "3D Printing & Rapid Prototyping",
+      "title": "Voron 2.4 350mm build: Voron Tap probe vs Beacon rev D eddy current sensor",
+      "author": "klipper_tuner",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T18:50:00Z",
+      "views": 411,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "klipper_tuner",
+          "timestamp_utc": "2026-10-11T18:50:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Finishing my Voron 2.4 gantry assembly. Deciding between optical Tap on the Stealthburner toolhead or an eddy current surface scanner like Beacon."
+        },
+        {
+          "post_number": 2,
+          "author": "corexy_addict",
+          "timestamp_utc": "2026-10-11T18:50:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Beacon scans a 50x50 bed mesh in literally 8 seconds while the bed is heated. Tap is mechanically solid but adds 50g of toolhead mass."
+        },
+        {
+          "post_number": 3,
+          "author": "abs_warrior",
+          "timestamp_utc": "2026-10-11T18:50:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Just make sure your aluminum tooling plate is flat. Beacon needs contact scan mode for thermal drift compensation on PEI sheets."
+        }
+      ],
+      "body": "[klipper_tuner]: Finishing my Voron 2.4 gantry assembly. Deciding between optical Tap on the Stealthburner toolhead or an eddy current surface scanner like Beacon.\n\n[corexy_addict]: Beacon scans a 50x50 bed mesh in literally 8 seconds while the bed is heated. Tap is mechanically solid but adds 50g of toolhead mass.\n\n[abs_warrior]: Just make sure your aluminum tooling plate is flat. Beacon needs contact scan mode for thermal drift compensation on PEI sheets."
+    },
+    {
+      "thread_id": "th_8962",
+      "subforum": "IoT & Wireless Sensor Networks",
+      "title": "BME680 gas resistance baseline calibration indoors vs humid Ottawa autumn weather",
+      "author": "air_quality_ottawa",
+      "posted_relative": "Posted 21 hours ago",
+      "created_at_utc": "2026-10-12T17:15:00Z",
+      "views": 412,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "air_quality_ottawa",
+          "timestamp_utc": "2026-10-12T17:15:00Z",
+          "posted_relative": "Posted 21 hours ago",
+          "body": "Running Bosch BSEC library on an ESP32 monitoring indoor IAQ. When outdoor humidity jumped to 90% during yesterday's rain, the indoor VOC score spiked to 250 despite zero fumes."
+        },
+        {
+          "post_number": 2,
+          "author": "sensor_guru_uottawa",
+          "timestamp_utc": "2026-10-12T17:15:00Z",
+          "posted_relative": "Posted 21 hours ago",
+          "body": "The metal-oxide MOX sensor hotplate is sensitive to ambient absolute humidity. Ensure your code passes the current relative humidity and temperature into `bsec_do_steps()` so it applies dynamic compensation."
+        }
+      ],
+      "body": "[air_quality_ottawa]: Running Bosch BSEC library on an ESP32 monitoring indoor IAQ. When outdoor humidity jumped to 90% during yesterday's rain, the indoor VOC score spiked to 250 despite zero fumes.\n\n[sensor_guru_uottawa]: The metal-oxide MOX sensor hotplate is sensitive to ambient absolute humidity. Ensure your code passes the current relative humidity and temperature into `bsec_do_steps()` so it applies dynamic compensation."
+    },
+    {
+      "thread_id": "th_8963",
+      "subforum": "Robotics & Autonomous Systems",
+      "title": "ODrive v3.6 dual motor controller over-current fault during rapid reversing",
+      "author": "bldc_tuner",
+      "posted_relative": "Posted 17 hours ago",
+      "created_at_utc": "2026-10-12T20:55:00Z",
+      "views": 413,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "bldc_tuner",
+          "timestamp_utc": "2026-10-12T20:55:00Z",
+          "posted_relative": "Posted 17 hours ago",
+          "body": "Tuning our combat robotics drivetrain with dual D5065 270KV brushless motors. Reversing full throttle trips ERROR_CURRENT_LIMIT_VIOLATION."
+        },
+        {
+          "post_number": 2,
+          "author": "foc_engineer",
+          "timestamp_utc": "2026-10-12T20:55:00Z",
+          "posted_relative": "Posted 17 hours ago",
+          "body": "You're regenerating inductive back-EMF faster than your power supply can sink it. Did you install the 50W power brake resistor across the AUX terminals and configure `odrv0.config.brake_resistance`?"
+        }
+      ],
+      "body": "[bldc_tuner]: Tuning our combat robotics drivetrain with dual D5065 270KV brushless motors. Reversing full throttle trips ERROR_CURRENT_LIMIT_VIOLATION.\n\n[foc_engineer]: You're regenerating inductive back-EMF faster than your power supply can sink it. Did you install the 50W power brake resistor across the AUX terminals and configure `odrv0.config.brake_resistance`?"
+    },
+    {
+      "thread_id": "th_8964",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "KiCad 8 DRC warning on USB 2.0 High Speed differential pair impedance 90 ohm",
+      "author": "pcb_designer_ottawa",
+      "posted_relative": "Posted 8 hours ago",
+      "created_at_utc": "2026-10-13T06:10:00Z",
+      "views": 414,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "pcb_designer_ottawa",
+          "timestamp_utc": "2026-10-13T06:10:00Z",
+          "posted_relative": "Posted 8 hours ago",
+          "body": "Routing D+ and D- traces from an FT232H chip to a USB-C receptacle on JLCPCB 7628 4-layer stackup. Differential impedance calculator gives 0.2mm width with 0.15mm gap."
+        },
+        {
+          "post_number": 2,
+          "author": "rf_grad_student",
+          "timestamp_utc": "2026-10-13T06:10:00Z",
+          "posted_relative": "Posted 8 hours ago",
+          "body": "Make sure you keep the ground reference plane solid directly beneath both traces without crossing any split planes or power cutouts."
+        },
+        {
+          "post_number": 3,
+          "author": "ground_plane_purist",
+          "timestamp_utc": "2026-10-13T06:10:00Z",
+          "posted_relative": "Posted 8 hours ago",
+          "body": "And match length within 0.15mm (6 mils) to minimize skew. USB 2.0 480Mbps is forgiving, but bad return paths create radiated EMI emissions."
+        }
+      ],
+      "body": "[pcb_designer_ottawa]: Routing D+ and D- traces from an FT232H chip to a USB-C receptacle on JLCPCB 7628 4-layer stackup. Differential impedance calculator gives 0.2mm width with 0.15mm gap.\n\n[rf_grad_student]: Make sure you keep the ground reference plane solid directly beneath both traces without crossing any split planes or power cutouts.\n\n[ground_plane_purist]: And match length within 0.15mm (6 mils) to minimize skew. USB 2.0 480Mbps is forgiving, but bad return paths create radiated EMI emissions."
+    },
+    {
+      "thread_id": "th_8965",
+      "subforum": "uOttawa-Carleton Joint Embedded & Wildlife Telemetry Lab",
+      "title": "Acoustic telemetry array deployed at Rideau River lockstation for muskellunge tracking",
+      "author": "fish_tracker_uottawa",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T12:05:00Z",
+      "views": 415,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "fish_tracker_uottawa",
+          "timestamp_utc": "2026-10-11T12:05:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Submerged 4 Innovasea VR2W 69 kHz acoustic receivers near the Hartwells Locks and Mooney's Bay to track tagged juvenile muskellunge before winter freeze-up."
+        },
+        {
+          "post_number": 2,
+          "author": "telemetry_tech",
+          "timestamp_utc": "2026-10-11T12:05:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "How's acoustic propagation with the autumn weed die-off? Signal attenuation usually drops once the submerged milfoil thins out."
+        },
+        {
+          "post_number": 3,
+          "author": "lab_pi_chen",
+          "timestamp_utc": "2026-10-11T12:05:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Preliminary range testing showed detection radius up to 450 meters across open water. Good coverage for the winter survival study."
+        }
+      ],
+      "body": "[fish_tracker_uottawa]: Submerged 4 Innovasea VR2W 69 kHz acoustic receivers near the Hartwells Locks and Mooney's Bay to track tagged juvenile muskellunge before winter freeze-up.\n\n[telemetry_tech]: How's acoustic propagation with the autumn weed die-off? Signal attenuation usually drops once the submerged milfoil thins out.\n\n[lab_pi_chen]: Preliminary range testing showed detection radius up to 450 meters across open water. Good coverage for the winter survival study."
+    },
+    {
+      "thread_id": "th_8966",
+      "subforum": "Ottawa FPV & Drone Racers",
+      "title": "TBS Crossfire 915MHz vs ExpressLRS 2.4GHz range test over Gatineau Park hills",
+      "author": "longrange_fpv",
+      "posted_relative": "Posted 23 hours ago",
+      "created_at_utc": "2026-10-12T14:40:00Z",
+      "views": 416,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "longrange_fpv",
+          "timestamp_utc": "2026-10-12T14:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "Did line-of-sight RC link tests from Champlain Lookout. ELRS 2.4GHz at 250Hz packet rate held link quality 100% out to 8km at only 100mW."
+        },
+        {
+          "post_number": 2,
+          "author": "rotor_rebel_613",
+          "timestamp_utc": "2026-10-12T14:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "ELRS packet rates are insane. Once you fly behind a granite ridge though, 915MHz penetrates tree foliage and ridge diffraction much better than 2.4GHz."
+        },
+        {
+          "post_number": 3,
+          "author": "rf_grad_student",
+          "timestamp_utc": "2026-10-12T14:40:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "Physics at work: Fresnel zone radius and free-space path loss are directly proportional to wavelength. 900MHz wins for non-line-of-sight every time."
+        }
+      ],
+      "body": "[longrange_fpv]: Did line-of-sight RC link tests from Champlain Lookout. ELRS 2.4GHz at 250Hz packet rate held link quality 100% out to 8km at only 100mW.\n\n[rotor_rebel_613]: ELRS packet rates are insane. Once you fly behind a granite ridge though, 915MHz penetrates tree foliage and ridge diffraction much better than 2.4GHz.\n\n[rf_grad_student]: Physics at work: Fresnel zone radius and free-space path loss are directly proportional to wavelength. 900MHz wins for non-line-of-sight every time."
+    },
+    {
+      "thread_id": "th_8967",
+      "subforum": "Ottawa River Boating & Marine Tech",
+      "title": "Hydrographic survey sounder NMEA 0183 to Signal K bridge on ESP32",
+      "author": "nautical_pi",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T08:15:00Z",
+      "views": 417,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "nautical_pi",
+          "timestamp_utc": "2026-10-12T08:15:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Wrote an Arduino sketch to read 4800 baud serial NMEA sentences ($SDDBT depth below transducer) from an old Garmin sounder and publish JSON over WebSockets to OpenPlotter."
+        },
+        {
+          "post_number": 2,
+          "author": "sailor_dan_ott",
+          "timestamp_utc": "2026-10-12T08:15:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Are you opting for optocoupler isolation on the NMEA RX pin? Marine ground loops between the engine battery and house bank will fry 3.3V microcontrollers."
+        }
+      ],
+      "body": "[nautical_pi]: Wrote an Arduino sketch to read 4800 baud serial NMEA sentences ($SDDBT depth below transducer) from an old Garmin sounder and publish JSON over WebSockets to OpenPlotter.\n\n[sailor_dan_ott]: Are you opting for optocoupler isolation on the NMEA RX pin? Marine ground loops between the engine battery and house bank will fry 3.3V microcontrollers."
+    },
+    {
+      "thread_id": "th_8968",
+      "subforum": "Carleton & uOttawa Engineering General",
+      "title": "ELEC 3500 lab 3: Verilog state machine for traffic light controller on Basys 3",
+      "author": "fpga_student_cu",
+      "posted_relative": "Posted 14 hours ago",
+      "created_at_utc": "2026-10-12T23:45:00Z",
+      "views": 418,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "fpga_student_cu",
+          "timestamp_utc": "2026-10-12T23:45:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "My FSM state transitions are skipping Yellow and going straight from Green to Red in simulation on Vivado 2024.1."
+        },
+        {
+          "post_number": 2,
+          "author": "hdl_guru",
+          "timestamp_utc": "2026-10-12T23:45:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "Check whether your clock divider counter is resetting the state register synchronously or asynchronously. If you don't use non-blocking assignments (`<=`) in sequential blocks, you get race hazards."
+        },
+        {
+          "post_number": 3,
+          "author": "coffee_coder",
+          "timestamp_utc": "2026-10-12T23:45:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "Always use 2-always block style: one clocked block for state registers, and one combinational block for next-state logic."
+        }
+      ],
+      "body": "[fpga_student_cu]: My FSM state transitions are skipping Yellow and going straight from Green to Red in simulation on Vivado 2024.1.\n\n[hdl_guru]: Check whether your clock divider counter is resetting the state register synchronously or asynchronously. If you don't use non-blocking assignments (`<=`) in sequential blocks, you get race hazards.\n\n[coffee_coder]: Always use 2-always block style: one clocked block for state registers, and one combinational block for next-state logic."
+    },
+    {
+      "thread_id": "th_8969",
+      "subforum": "Renewable Energy & Off-Grid Tech",
+      "title": "Spot welding 18650 packs with Malectrics spot welder and LiFePO4 cells",
+      "author": "battery_builder_ottawa",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T16:50:00Z",
+      "views": 419,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "battery_builder_ottawa",
+          "timestamp_utc": "2026-10-11T16:50:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Building a 48V 14S e-bike battery using genuine Samsung 30Q cells and 0.15mm pure nickel strip. The Malectrics welder running off a 3S 5000mAh 60C LiPo makes gorgeous spot welds at 22ms pulse time."
+        },
+        {
+          "post_number": 2,
+          "author": "sparky_mcgee",
+          "timestamp_utc": "2026-10-11T16:50:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Don't skimp on fishpaper insulation rings on the positive terminals! The outer rim of an 18650 is connected to the negative can, so a nicked shrink wrap can cause a direct dead short."
+        }
+      ],
+      "body": "[battery_builder_ottawa]: Building a 48V 14S e-bike battery using genuine Samsung 30Q cells and 0.15mm pure nickel strip. The Malectrics welder running off a 3S 5000mAh 60C LiPo makes gorgeous spot welds at 22ms pulse time.\n\n[sparky_mcgee]: Don't skimp on fishpaper insulation rings on the positive terminals! The outer rim of an 18650 is connected to the negative can, so a nicked shrink wrap can cause a direct dead short."
+    },
+    {
+      "thread_id": "th_8970",
+      "subforum": "Carleton University CS & Computer Systems",
+      "title": "COMP 4004 Software Quality Assurance: mutation testing with Pitest on Spring Boot",
+      "author": "test_coverage_freak",
+      "posted_relative": "Posted 22 hours ago",
+      "created_at_utc": "2026-10-12T16:10:00Z",
+      "views": 420,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "test_coverage_freak",
+          "timestamp_utc": "2026-10-12T16:10:00Z",
+          "posted_relative": "Posted 22 hours ago",
+          "body": "Running PIT mutation testing on our banking API project. Our line coverage is 94% but mutation score is only 58% because our JUnit assertions don't check edge-case state mutations."
+        },
+        {
+          "post_number": 2,
+          "author": "qa_lead_ottawa",
+          "timestamp_utc": "2026-10-12T16:10:00Z",
+          "posted_relative": "Posted 22 hours ago",
+          "body": "Line coverage is a vanity metric; mutation coverage measures test quality. Look at BoundaryConditionMutator and MathMutator logs to see surviving mutants."
+        }
+      ],
+      "body": "[test_coverage_freak]: Running PIT mutation testing on our banking API project. Our line coverage is 94% but mutation score is only 58% because our JUnit assertions don't check edge-case state mutations.\n\n[qa_lead_ottawa]: Line coverage is a vanity metric; mutation coverage measures test quality. Look at BoundaryConditionMutator and MathMutator logs to see surviving mutants."
+    },
+    {
+      "thread_id": "th_8971",
+      "subforum": "3D Printing & Rapid Prototyping",
+      "title": "Elegoo Saturn 3 Ultra 12K: Anycubic Tough Resin exposure settings for cold basement",
+      "author": "resin_printer_dan",
+      "posted_relative": "Posted 19 hours ago",
+      "created_at_utc": "2026-10-12T19:00:00Z",
+      "views": 421,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "resin_printer_dan",
+          "timestamp_utc": "2026-10-12T19:00:00Z",
+          "posted_relative": "Posted 19 hours ago",
+          "body": "Prints started delaminating from the build plate now that my basement temp dropped to 17C. Any recommendations for bottom exposure time?"
+        },
+        {
+          "post_number": 2,
+          "author": "sla_expert_613",
+          "timestamp_utc": "2026-10-12T19:00:00Z",
+          "posted_relative": "Posted 19 hours ago",
+          "body": "Cold photopolymer resin increases dramatically in viscosity. Resin needs to be 24-28C for proper monomer crosslinking. Buy a fermentation heating band or a mini PTC heater inside the UV enclosure."
+        }
+      ],
+      "body": "[resin_printer_dan]: Prints started delaminating from the build plate now that my basement temp dropped to 17C. Any recommendations for bottom exposure time?\n\n[sla_expert_613]: Cold photopolymer resin increases dramatically in viscosity. Resin needs to be 24-28C for proper monomer crosslinking. Buy a fermentation heating band or a mini PTC heater inside the UV enclosure."
+    },
+    {
+      "thread_id": "th_8972",
+      "subforum": "Ottawa Maker Community & Hardware Swap",
+      "title": "Free 19-inch 42U server rack pickup in Kanata Business Park (Legrand / Ortronics)",
+      "author": "sysadmin_hoarder",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T12:30:00Z",
+      "views": 422,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "sysadmin_hoarder",
+          "timestamp_utc": "2026-10-12T12:30:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Office decommission in Kanata. 4-post open rack with cable management fingers. Needs a pickup truck or cargo van. Free to whoever can haul it away before Friday."
+        },
+        {
+          "post_number": 2,
+          "author": "homelab_enthusiast",
+          "timestamp_utc": "2026-10-12T12:30:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Sending private message! Can pick up Wednesday afternoon in my Dodge Grand Caravan."
+        },
+        {
+          "post_number": 3,
+          "author": "sysadmin_hoarder",
+          "timestamp_utc": "2026-10-12T12:30:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Reserved for homelab_enthusiast."
+        }
+      ],
+      "body": "[sysadmin_hoarder]: Office decommission in Kanata. 4-post open rack with cable management fingers. Needs a pickup truck or cargo van. Free to whoever can haul it away before Friday.\n\n[homelab_enthusiast]: Sending private message! Can pick up Wednesday afternoon in my Dodge Grand Caravan.\n\n[sysadmin_hoarder]: Reserved for homelab_enthusiast."
+    },
+    {
+      "thread_id": "th_8973",
+      "subforum": "Ham Radio & RF Engineering (Ottawa Amateur Radio Club)",
+      "title": "Homebrew 2.4GHz cantenna vs PCB patch antenna for directional Wi-Fi links",
+      "author": "ve3_foxtrot_tango",
+      "posted_relative": "Posted 20 hours ago",
+      "created_at_utc": "2026-10-12T17:40:00Z",
+      "views": 423,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "ve3_foxtrot_tango",
+          "timestamp_utc": "2026-10-12T17:40:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "Built a classic cantenna from a 3.5-inch diameter coffee tin with an N-connector probe at 3/4 lambda guide wavelength. Measured 11.2 dBi gain on the lab spectrum analyzer."
+        },
+        {
+          "post_number": 2,
+          "author": "rf_grad_student",
+          "timestamp_utc": "2026-10-12T17:40:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "A circular waveguide cantenna has a clean TE11 mode and circular radiation pattern, but high side lobes. A planar microstrip patch array gives you a much better front-to-back ratio."
+        }
+      ],
+      "body": "[ve3_foxtrot_tango]: Built a classic cantenna from a 3.5-inch diameter coffee tin with an N-connector probe at 3/4 lambda guide wavelength. Measured 11.2 dBi gain on the lab spectrum analyzer.\n\n[rf_grad_student]: A circular waveguide cantenna has a clean TE11 mode and circular radiation pattern, but high side lobes. A planar microstrip patch array gives you a much better front-to-back ratio."
+    },
+    {
+      "thread_id": "th_8974",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "nRF52840 BLE peripheral pairing disconnects on iOS 18 background resume",
+      "author": "nordic_dev",
+      "posted_relative": "Posted 9 hours ago",
+      "created_at_utc": "2026-10-13T04:50:00Z",
+      "views": 424,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "nordic_dev",
+          "timestamp_utc": "2026-10-13T04:50:00Z",
+          "posted_relative": "Posted 9 hours ago",
+          "body": "Using Zephyr RTOS on an nRF52840 Dongle. The peripheral connects to the test iPhone, but when the app backgrounds and wakes up, iOS drops GATT connection with reason 0x13 (Remote User Terminated)."
+        },
+        {
+          "post_number": 2,
+          "author": "ios_ble_hacker",
+          "timestamp_utc": "2026-10-13T04:50:00Z",
+          "posted_relative": "Posted 9 hours ago",
+          "body": "Apple's Bluetooth Accessory Design Guidelines mandate specific connection interval ranges: slave latency <= 30, connInterval >= 15ms and <= 2000ms. If your connection parameters violate these, iOS terminates the link."
+        }
+      ],
+      "body": "[nordic_dev]: Using Zephyr RTOS on an nRF52840 Dongle. The peripheral connects to the test iPhone, but when the app backgrounds and wakes up, iOS drops GATT connection with reason 0x13 (Remote User Terminated).\n\n[ios_ble_hacker]: Apple's Bluetooth Accessory Design Guidelines mandate specific connection interval ranges: slave latency <= 30, connInterval >= 15ms and <= 2000ms. If your connection parameters violate these, iOS terminates the link."
+    },
+    {
+      "thread_id": "th_8975",
+      "subforum": "Robotics & Autonomous Systems",
+      "title": "Intel RealSense D435i depth noise outdoors in direct sunlight at Lansdowne Park",
+      "author": "vision_student_uottawa",
+      "posted_relative": "Posted 23 hours ago",
+      "created_at_utc": "2026-10-12T15:15:00Z",
+      "views": 425,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "vision_student_uottawa",
+          "timestamp_utc": "2026-10-12T15:15:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "Testing our rover obstacle detection outdoors. The D435i infrared projector is completely washed out by ambient solar IR radiation on asphalt."
+        },
+        {
+          "post_number": 2,
+          "author": "cv_researcher",
+          "timestamp_utc": "2026-10-12T15:15:00Z",
+          "posted_relative": "Posted 23 hours ago",
+          "body": "The D435 uses active IR stereo. In bright sunlight (100k lux), turn off the internal IR emitter and enable the High Accuracy or High Density preset with auto-exposure on the dual IR sensors."
+        }
+      ],
+      "body": "[vision_student_uottawa]: Testing our rover obstacle detection outdoors. The D435i infrared projector is completely washed out by ambient solar IR radiation on asphalt.\n\n[cv_researcher]: The D435 uses active IR stereo. In bright sunlight (100k lux), turn off the internal IR emitter and enable the High Accuracy or High Density preset with auto-exposure on the dual IR sensors."
+    },
+    {
+      "thread_id": "th_8976",
+      "subforum": "IoT & Wireless Sensor Networks",
+      "title": "ESP-NOW mesh network reliability through reinforced concrete walls in Minto Centre",
+      "author": "wireless_tinkerer",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T10:05:00Z",
+      "views": 426,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "wireless_tinkerer",
+          "timestamp_utc": "2026-10-12T10:05:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Trying to relay environmental telemetry between basement labs using ESP32 ESP-NOW protocol at 1 Mbps. Packet loss jumps to 40% through two concrete firewalls."
+        },
+        {
+          "post_number": 2,
+          "author": "bird_nerd_ee",
+          "timestamp_utc": "2026-10-12T10:05:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Reinforced concrete absorbs 2.4GHz RF heavily due to internal rebar grid scattering. We saw similar attenuation during our river corridor tests whenever foliage or terrain was between nodes. Switch to ESP-NOW long-range PHY mode (LR mode at 250kbps) or drop down to 915MHz LoRa."
+        },
+        {
+          "post_number": 3,
+          "author": "wireless_tinkerer",
+          "timestamp_utc": "2026-10-12T10:05:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Switching to LR PHY doubled our packet reception rate through the stairwell! Thanks for the tip."
+        }
+      ],
+      "body": "[wireless_tinkerer]: Trying to relay environmental telemetry between basement labs using ESP32 ESP-NOW protocol at 1 Mbps. Packet loss jumps to 40% through two concrete firewalls.\n\n[bird_nerd_ee]: Reinforced concrete absorbs 2.4GHz RF heavily due to internal rebar grid scattering. We saw similar attenuation during our river corridor tests whenever foliage or terrain was between nodes. Switch to ESP-NOW long-range PHY mode (LR mode at 250kbps) or drop down to 915MHz LoRa.\n\n[wireless_tinkerer]: Switching to LR PHY doubled our packet reception rate through the stairwell! Thanks for the tip."
+    },
+    {
+      "thread_id": "th_8977",
+      "subforum": "Carleton & uOttawa Engineering General",
+      "title": "Ottawa Civic Hackathon 2026: Team looking for backend dev (FastAPI / PostgreSQL)",
+      "author": "hackathon_hacker",
+      "posted_relative": "Posted 17 hours ago",
+      "created_at_utc": "2026-10-12T21:10:00Z",
+      "views": 427,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "hackathon_hacker",
+          "timestamp_utc": "2026-10-12T21:10:00Z",
+          "posted_relative": "Posted 17 hours ago",
+          "body": "We're building an OC Transpo real-time bus delay visualizer with map heatmaps for this weekend's hackathon. We have 2 frontend devs (React/MapLibre) and need 1 backend wizard."
+        },
+        {
+          "post_number": 2,
+          "author": "python_ninja_613",
+          "timestamp_utc": "2026-10-12T21:10:00Z",
+          "posted_relative": "Posted 17 hours ago",
+          "body": "I'm down! Experienced with FastAPI, async asyncpg, and PostGIS spatial indexing."
+        },
+        {
+          "post_number": 3,
+          "author": "frontend_wizard",
+          "timestamp_utc": "2026-10-12T21:10:00Z",
+          "posted_relative": "Posted 17 hours ago",
+          "body": "Awesome, sent you an invite to our Discord and GitHub repo!"
+        }
+      ],
+      "body": "[hackathon_hacker]: We're building an OC Transpo real-time bus delay visualizer with map heatmaps for this weekend's hackathon. We have 2 frontend devs (React/MapLibre) and need 1 backend wizard.\n\n[python_ninja_613]: I'm down! Experienced with FastAPI, async asyncpg, and PostGIS spatial indexing.\n\n[frontend_wizard]: Awesome, sent you an invite to our Discord and GitHub repo!"
+    },
+    {
+      "thread_id": "th_8978",
+      "subforum": "Renewable Energy & Off-Grid Tech",
+      "title": "Micro-hydro Pelton wheel turbine on small creek in Wakefield QC",
+      "author": "wakefield_maker",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T19:25:00Z",
+      "views": 428,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "wakefield_maker",
+          "timestamp_utc": "2026-10-11T19:25:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "We have a 12-meter head and 2 liters/second flow on our property stream. 3D printed a spoon Pelton runner in polycarbonate attached to a 24V permanent magnet alternator."
+        },
+        {
+          "post_number": 2,
+          "author": "green_energy_enthusiast",
+          "timestamp_utc": "2026-10-11T19:25:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "With 12m head and 2L/s, theoretical hydraulic power is P = rho * g * H * Q = 1000 * 9.81 * 12 * 0.002 = 235 Watts continuous! That's 5.6 kWh/day, plenty for off-grid lighting."
+        }
+      ],
+      "body": "[wakefield_maker]: We have a 12-meter head and 2 liters/second flow on our property stream. 3D printed a spoon Pelton runner in polycarbonate attached to a 24V permanent magnet alternator.\n\n[green_energy_enthusiast]: With 12m head and 2L/s, theoretical hydraulic power is P = rho * g * H * Q = 1000 * 9.81 * 12 * 0.002 = 235 Watts continuous! That's 5.6 kWh/day, plenty for off-grid lighting."
+    },
+    {
+      "thread_id": "th_8979",
+      "subforum": "3D Printing & Rapid Prototyping",
+      "title": "Bambu Lab X1C AMS retraction error on slot 3 with flexible TPU 95A",
+      "author": "ams_troubleshooter",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T13:45:00Z",
+      "views": 429,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "ams_troubleshooter",
+          "timestamp_utc": "2026-10-12T13:45:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Loaded Sainsmart TPU 95A into slot 3 of the AMS and it wrapped around the first stage feeder gear during unloading."
+        },
+        {
+          "post_number": 2,
+          "author": "filament_fiend",
+          "timestamp_utc": "2026-10-12T13:45:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Bambu explicitly warns in the manual: NEVER run TPU through the AMS! The Bowden path is too long and the retraction drive pushes flexible filament into the gears. Print TPU directly from the external rear spool holder."
+        }
+      ],
+      "body": "[ams_troubleshooter]: Loaded Sainsmart TPU 95A into slot 3 of the AMS and it wrapped around the first stage feeder gear during unloading.\n\n[filament_fiend]: Bambu explicitly warns in the manual: NEVER run TPU through the AMS! The Bowden path is too long and the retraction drive pushes flexible filament into the gears. Print TPU directly from the external rear spool holder."
+    },
+    {
+      "thread_id": "th_8980",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "Level shifter 3.3V to 5V for WS2812B NeoPixel strip (74AHCT125 vs TXS0108E)",
+      "author": "led_matrix_fan",
+      "posted_relative": "Posted 9 hours ago",
+      "created_at_utc": "2026-10-13T05:30:00Z",
+      "views": 430,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "led_matrix_fan",
+          "timestamp_utc": "2026-10-13T05:30:00Z",
+          "posted_relative": "Posted 9 hours ago",
+          "body": "Driving a 300-LED addressable strip from an ESP32. With a TXS0108E bidirectional shifter the data line has glitchy reflections and colors flicker randomly."
+        },
+        {
+          "post_number": 2,
+          "author": "bare_metal_dan",
+          "timestamp_utc": "2026-10-13T05:30:00Z",
+          "posted_relative": "Posted 9 hours ago",
+          "body": "TXS0108E has weak internal pullups and edge accelerators that fail on high-capacitance capacitive lines like LED strips. Use a unidirectional 74AHCT125 or 74HCT245 buffer running at 5V VCC — its high-level input threshold is 2.0V, perfectly compatible with 3.3V CMOS logic."
+        }
+      ],
+      "body": "[led_matrix_fan]: Driving a 300-LED addressable strip from an ESP32. With a TXS0108E bidirectional shifter the data line has glitchy reflections and colors flicker randomly.\n\n[bare_metal_dan]: TXS0108E has weak internal pullups and edge accelerators that fail on high-capacitance capacitive lines like LED strips. Use a unidirectional 74AHCT125 or 74HCT245 buffer running at 5V VCC — its high-level input threshold is 2.0V, perfectly compatible with 3.3V CMOS logic."
+    },
+    {
+      "thread_id": "th_8981",
+      "subforum": "Carleton University CS & Computer Systems",
+      "title": "COMP 3804 Design and Analysis of Algorithms: dynamic programming recurrence help",
+      "author": "algo_struggler",
+      "posted_relative": "Posted 12 hours ago",
+      "created_at_utc": "2026-10-13T02:00:00Z",
+      "views": 431,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "algo_struggler",
+          "timestamp_utc": "2026-10-13T02:00:00Z",
+          "posted_relative": "Posted 12 hours ago",
+          "body": "Working on assignment 3 problem 4 (Longest Common Subsequence with gap penalties). Can someone sanity check my memoization table state definition?"
+        },
+        {
+          "post_number": 2,
+          "author": "ta_dave_w",
+          "timestamp_utc": "2026-10-13T02:00:00Z",
+          "posted_relative": "Posted 12 hours ago",
+          "body": "Define `dp[i][j]` as the optimal score for prefix `X[1..i]` and `Y[1..j]`. Your base cases need to account for all gaps when either string is empty."
+        },
+        {
+          "post_number": 3,
+          "author": "algo_struggler",
+          "timestamp_utc": "2026-10-13T02:00:00Z",
+          "posted_relative": "Posted 12 hours ago",
+          "body": "That clarified the boundary condition indexing. Passed all test vectors on Gradescope!"
+        }
+      ],
+      "body": "[algo_struggler]: Working on assignment 3 problem 4 (Longest Common Subsequence with gap penalties). Can someone sanity check my memoization table state definition?\n\n[ta_dave_w]: Define `dp[i][j]` as the optimal score for prefix `X[1..i]` and `Y[1..j]`. Your base cases need to account for all gaps when either string is empty.\n\n[algo_struggler]: That clarified the boundary condition indexing. Passed all test vectors on Gradescope!"
+    },
+    {
+      "thread_id": "th_8982",
+      "subforum": "Ottawa Maker Community & Hardware Swap",
+      "title": "Bayview Yards makerspace ShopBot CNC training certification slots open for Nov",
+      "author": "woodshop_lead",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T14:00:00Z",
+      "views": 432,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "woodshop_lead",
+          "timestamp_utc": "2026-10-12T14:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "We have 6 spots open for the 4-hour hands-on safety and feeds/speeds certification on the 4x8 foot ShopBot CNC router at Bayview Yards."
+        },
+        {
+          "post_number": 2,
+          "author": "maker_dave",
+          "timestamp_utc": "2026-10-12T14:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Signed up! Looking forward to cutting Baltic birch plywood cabinets for my home lab."
+        },
+        {
+          "post_number": 3,
+          "author": "cad_monkey",
+          "timestamp_utc": "2026-10-12T14:00:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Remember to bring your own 1/4 inch shank downcut spiral bits if you're machining melamine or veneer."
+        }
+      ],
+      "body": "[woodshop_lead]: We have 6 spots open for the 4-hour hands-on safety and feeds/speeds certification on the 4x8 foot ShopBot CNC router at Bayview Yards.\n\n[maker_dave]: Signed up! Looking forward to cutting Baltic birch plywood cabinets for my home lab.\n\n[cad_monkey]: Remember to bring your own 1/4 inch shank downcut spiral bits if you're machining melamine or veneer."
+    },
+    {
+      "thread_id": "th_8983",
+      "subforum": "Ham Radio & RF Engineering (Ottawa Amateur Radio Club)",
+      "title": "High SWR on 20m trapped dipole after heavy rain and ice storm prep",
+      "author": "va3_whiskey_delta",
+      "posted_relative": "Posted 16 hours ago",
+      "created_at_utc": "2026-10-12T21:40:00Z",
+      "views": 433,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "va3_whiskey_delta",
+          "timestamp_utc": "2026-10-12T21:40:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "My multi-band trap dipole at 35 feet had resonant frequency shift down from 14.225 MHz to 13.910 MHz after yesterday's rainstorm."
+        },
+        {
+          "post_number": 2,
+          "author": "antenna_builder_613",
+          "timestamp_utc": "2026-10-12T21:40:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "Water ingress inside the trap coil PVC housings will add parallel capacitance and lower the resonant frequency. Check your drain weep holes at the bottom of each trap."
+        }
+      ],
+      "body": "[va3_whiskey_delta]: My multi-band trap dipole at 35 feet had resonant frequency shift down from 14.225 MHz to 13.910 MHz after yesterday's rainstorm.\n\n[antenna_builder_613]: Water ingress inside the trap coil PVC housings will add parallel capacitance and lower the resonant frequency. Check your drain weep holes at the bottom of each trap."
+    },
+    {
+      "thread_id": "th_8984",
+      "subforum": "Robotics & Autonomous Systems",
+      "title": "CAN bus termination resistors 120 ohm on mobile robot base",
+      "author": "canbus_coder",
+      "posted_relative": "Posted 18 hours ago",
+      "created_at_utc": "2026-10-12T19:50:00Z",
+      "views": 434,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "canbus_coder",
+          "timestamp_utc": "2026-10-12T19:50:00Z",
+          "posted_relative": "Posted 18 hours ago",
+          "body": "Our autonomous ground rover uses CAN-FD at 2 Mbps between 6 motor drivers. We keep seeing passive error frames on the bus analyzer."
+        },
+        {
+          "post_number": 2,
+          "author": "robot_rookie_cu",
+          "timestamp_utc": "2026-10-12T19:50:00Z",
+          "posted_relative": "Posted 18 hours ago",
+          "body": "Did you verify that there are exactly TWO 120-ohm termination resistors at the extreme ends of the bus? Measure resistance between CANH and CANL with power off — it must read exactly 60 ohms."
+        }
+      ],
+      "body": "[canbus_coder]: Our autonomous ground rover uses CAN-FD at 2 Mbps between 6 motor drivers. We keep seeing passive error frames on the bus analyzer.\n\n[robot_rookie_cu]: Did you verify that there are exactly TWO 120-ohm termination resistors at the extreme ends of the bus? Measure resistance between CANH and CANL with power off — it must read exactly 60 ohms."
+    },
+    {
+      "thread_id": "th_8985",
+      "subforum": "IoT & Wireless Sensor Networks",
+      "title": "Cellular NB-IoT SIM7080G module fails to register on Rogers / Bell LTE-M network",
+      "author": "lte_iot_dev",
+      "posted_relative": "Posted 1 day ago",
+      "created_at_utc": "2026-10-12T11:55:00Z",
+      "views": 435,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "lte_iot_dev",
+          "timestamp_utc": "2026-10-12T11:55:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Using Waveshare SIM7080G CAT-M/NB-IoT hat with a hologram SIM card. AT+CREG? returns 0,2 (searching)."
+        },
+        {
+          "post_number": 2,
+          "author": "telemetry_tech",
+          "timestamp_utc": "2026-10-12T11:55:00Z",
+          "posted_relative": "Posted 1 day ago",
+          "body": "Canadian carriers support LTE-M (CAT-M1), but NB-IoT coverage is spotty. Force the modem to CAT-M1 mode only with `AT+CMNB=1` and set APN explicitly via `AT+CGDCONT=1,\"IP\",\"hologram\"`."
+        }
+      ],
+      "body": "[lte_iot_dev]: Using Waveshare SIM7080G CAT-M/NB-IoT hat with a hologram SIM card. AT+CREG? returns 0,2 (searching).\n\n[telemetry_tech]: Canadian carriers support LTE-M (CAT-M1), but NB-IoT coverage is spotty. Force the modem to CAT-M1 mode only with `AT+CMNB=1` and set APN explicitly via `AT+CGDCONT=1,\"IP\",\"hologram\"`."
+    },
+    {
+      "thread_id": "th_8986",
+      "subforum": "Carleton & uOttawa Engineering General",
+      "title": "Best soldering station for SMD 0402 rework: Pinecil v2 vs TS101 vs Hakko FX-888D",
+      "author": "soldering_iron_fan",
+      "posted_relative": "Posted 14 hours ago",
+      "created_at_utc": "2026-10-13T00:20:00Z",
+      "views": 436,
+      "replies_count": 2,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "soldering_iron_fan",
+          "timestamp_utc": "2026-10-13T00:20:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "Upgrading my bench gear for a hardware startup internship. Need fine tip precision for 0402 passives and QFN reflow."
+        },
+        {
+          "post_number": 2,
+          "author": "pcb_designer_ottawa",
+          "timestamp_utc": "2026-10-13T00:20:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "Pinecil v2 with a TS-ILS needle tip powered by a 65W USB-PD brick heats up in 6 seconds and has fantastic thermal recovery."
+        },
+        {
+          "post_number": 3,
+          "author": "eecs_sophomore",
+          "timestamp_utc": "2026-10-13T00:20:00Z",
+          "posted_relative": "Posted 14 hours ago",
+          "body": "Agreed. Hakko FX-888D is indestructible for through-hole, but cartridge-tip irons like Pinecil/TS101 blow it away for SMD precision."
+        }
+      ],
+      "body": "[soldering_iron_fan]: Upgrading my bench gear for a hardware startup internship. Need fine tip precision for 0402 passives and QFN reflow.\n\n[pcb_designer_ottawa]: Pinecil v2 with a TS-ILS needle tip powered by a 65W USB-PD brick heats up in 6 seconds and has fantastic thermal recovery.\n\n[eecs_sophomore]: Agreed. Hakko FX-888D is indestructible for through-hole, but cartridge-tip irons like Pinecil/TS101 blow it away for SMD precision."
+    },
+    {
+      "thread_id": "th_8987",
+      "subforum": "Embedded Microcontrollers & Circuit Design",
+      "title": "ATtiny85 I2C OLED display flickering when powered from CR2032 coin cell",
+      "author": "tiny_avred",
+      "posted_relative": "Posted 16 hours ago",
+      "created_at_utc": "2026-10-12T22:05:00Z",
+      "views": 437,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "tiny_avred",
+          "timestamp_utc": "2026-10-12T22:05:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "Designing a wearable digital name badge with an 0.96 inch SSD1306 OLED and an ATtiny85 running at 1MHz. As soon as all pixels turn on, the MCU resets."
+        },
+        {
+          "post_number": 2,
+          "author": "bare_metal_dan",
+          "timestamp_utc": "2026-10-12T22:05:00Z",
+          "posted_relative": "Posted 16 hours ago",
+          "body": "A standard CR2032 has internal resistance of 10 to 30 ohms. The OLED charge pump pulls 25mA peak when lit, dropping coin cell terminal voltage from 3.0V down to 2.2V. Put a 100uF low-ESR tantalum capacitor in parallel with the battery."
+        }
+      ],
+      "body": "[tiny_avred]: Designing a wearable digital name badge with an 0.96 inch SSD1306 OLED and an ATtiny85 running at 1MHz. As soon as all pixels turn on, the MCU resets.\n\n[bare_metal_dan]: A standard CR2032 has internal resistance of 10 to 30 ohms. The OLED charge pump pulls 25mA peak when lit, dropping coin cell terminal voltage from 3.0V down to 2.2V. Put a 100uF low-ESR tantalum capacitor in parallel with the battery."
+    },
+    {
+      "thread_id": "th_8988",
+      "subforum": "Ottawa River Boating & Marine Tech",
+      "title": "ESP32 bilge pump float switch monitor with cellular SMS alert",
+      "author": "sailor_dan_ott",
+      "posted_relative": "Posted 2 days ago",
+      "created_at_utc": "2026-10-11T11:15:00Z",
+      "views": 438,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "sailor_dan_ott",
+          "timestamp_utc": "2026-10-11T11:15:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Built a low-power bilge monitor for my boat at the marina that texts me via Twilio if the float switch closes twice within 10 minutes."
+        },
+        {
+          "post_number": 2,
+          "author": "nautical_pi",
+          "timestamp_utc": "2026-10-11T11:15:00Z",
+          "posted_relative": "Posted 2 days ago",
+          "body": "Make sure you include a debounce delay of at least 5 seconds so boat wake doesn't trigger false alarm SMS messages."
+        }
+      ],
+      "body": "[sailor_dan_ott]: Built a low-power bilge monitor for my boat at the marina that texts me via Twilio if the float switch closes twice within 10 minutes.\n\n[nautical_pi]: Make sure you include a debounce delay of at least 5 seconds so boat wake doesn't trigger false alarm SMS messages."
+    },
+    {
+      "thread_id": "th_8989",
+      "subforum": "3D Printing & Rapid Prototyping",
+      "title": "CNC Kitchen heat set insert tips for M3 / M4 brass threaded inserts in ABS",
+      "author": "insert_fanatic",
+      "posted_relative": "Posted 20 hours ago",
+      "created_at_utc": "2026-10-12T17:55:00Z",
+      "views": 439,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "insert_fanatic",
+          "timestamp_utc": "2026-10-12T17:55:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "Just got the specialized soldering iron tips for installing brass threaded inserts into 3D prints. Cleanest flush joints ever on my robot chassis."
+        },
+        {
+          "post_number": 2,
+          "author": "print_doctor_bob",
+          "timestamp_utc": "2026-10-12T17:55:00Z",
+          "posted_relative": "Posted 20 hours ago",
+          "body": "What temperature are you setting your iron to? For Voron ABS parts I find 260C pushes the insert in like butter without melting surrounding outer walls."
+        }
+      ],
+      "body": "[insert_fanatic]: Just got the specialized soldering iron tips for installing brass threaded inserts into 3D prints. Cleanest flush joints ever on my robot chassis.\n\n[print_doctor_bob]: What temperature are you setting your iron to? For Voron ABS parts I find 260C pushes the insert in like butter without melting surrounding outer walls."
+    },
+    {
+      "thread_id": "th_8990",
+      "subforum": "Carleton University CS & Computer Systems",
+      "title": "Docker container bridge network host port mapping issue on Ubuntu 24.04",
+      "author": "devops_intern",
+      "posted_relative": "Posted 8 hours ago",
+      "created_at_utc": "2026-10-13T06:40:00Z",
+      "views": 440,
+      "replies_count": 1,
+      "posts": [
+        {
+          "post_number": 1,
+          "author": "devops_intern",
+          "timestamp_utc": "2026-10-13T06:40:00Z",
+          "posted_relative": "Posted 8 hours ago",
+          "body": "Running `docker run -p 8080:80 nginx` on our student project VPS, but curl to localhost:8080 hangs indefinitely."
+        },
+        {
+          "post_number": 2,
+          "author": "sysprog_veteran",
+          "timestamp_utc": "2026-10-13T06:40:00Z",
+          "posted_relative": "Posted 8 hours ago",
+          "body": "Ubuntu 24.04 switched default firewall from iptables to nftables. Docker's legacy iptables nat chain forwarding often breaks unless you configure `nftables` bridge rules or enable `br_netfilter` kernel module."
+        }
+      ],
+      "body": "[devops_intern]: Running `docker run -p 8080:80 nginx` on our student project VPS, but curl to localhost:8080 hangs indefinitely.\n\n[sysprog_veteran]: Ubuntu 24.04 switched default firewall from iptables to nftables. Docker's legacy iptables nat chain forwarding often breaks unless you configure `nftables` bridge rules or enable `br_netfilter` kernel module."
+    }
+  ]
+}
