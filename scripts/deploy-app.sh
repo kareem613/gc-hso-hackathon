@@ -8,7 +8,7 @@ CONFIG_FILE="${REPO_ROOT}/k8s/config/infra.env"
 
 if [[ ! -f "${ENV_FILE}" ]]; then
   echo "Error: App .env file not found at ${ENV_FILE}" >&2
-  echo "Copy .env.example to .env and set GOOGLE_MAPS_API_KEY." >&2
+  echo "Run ./scripts/apply-core-infra.sh (or ./scripts/ensure-maps-key.sh) first to generate .env." >&2
   exit 1
 fi
 

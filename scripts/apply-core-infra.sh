@@ -36,4 +36,7 @@ kubectl wait --for=condition=Ready \
   iampolicymember.iam.cnrm.cloud.google.com/hso-node-ar-reader \
   --timeout=180s
 
+echo "==> Provisioning Google Maps API key and local .env..."
+"${SCRIPT_DIR}/ensure-maps-key.sh"
+
 echo "==> Core GCP infrastructure is Ready."

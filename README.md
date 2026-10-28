@@ -6,15 +6,13 @@ Interactive Google Maps geospatial dataset explorer built as an exercise for a h
 
 > **Tip:** Using Gemini CLI or a compatible coding agent? Ask it to run the `getting-started` skill for a guided interactive setup.
 
-Create the two gitignored local configuration files from their templates:
+Create your local infrastructure configuration file from the template:
 
 ```bash
-cp .env.example .env
 cp k8s/config/infra.env.example k8s/config/infra.env
 ```
 
-1. Edit `.env` and set your `GOOGLE_MAPS_API_KEY`.
-2. Edit `k8s/config/infra.env` and set `PROJECT_ID` (and optionally `REGION`, `MACHINE_TYPE`, `MIN_NODES`, `MAX_NODES`).
+Edit `k8s/config/infra.env` and set `PROJECT_ID` (and optionally `REGION`, `MACHINE_TYPE`, `MIN_NODES`, `MAX_NODES`).
 
 ## End-to-End GKE Deployment
 
@@ -24,7 +22,7 @@ Run the lifecycle scripts in order from the repository root:
 # 1. Bootstrap custom VPC/subnet, least-privilege GKE node & Config Connector SAs, and private-node GKE cluster
 ./scripts/bootstrap-infra.sh
 
-# 2. Declaratively enable GCP APIs, create Artifact Registry, and bind Cloud Build & GKE node IAM via Config Connector
+# 2. Declaratively enable GCP & Maps APIs, create Artifact Registry & IAM via Config Connector, and provision the Maps API key (.env)
 ./scripts/apply-core-infra.sh
 
 # 3. Build and push the Nginx frontend container image via Cloud Build
@@ -42,9 +40,11 @@ Run the lifecycle scripts in order from the repository root:
 
 Open `http://localhost:8080` in your browser.
 
+*(For local static development without GKE, run `./scripts/ensure-maps-key.sh` once to enable Maps JS and generate `.env`.)*
+
 ## Teardown
 
-To cleanly remove all deployed resources:
+To cleanly remove all deployed resources (including the managed Maps API key and `.env`):
 
 ```bash
 ./scripts/teardown-infra.sh

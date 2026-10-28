@@ -4,7 +4,6 @@
 .dockerignore
 .gcloudignore
 .env
-.env.example
 README.md
 datasets/
 k8s/

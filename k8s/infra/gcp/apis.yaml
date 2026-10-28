@@ -27,3 +27,23 @@ metadata:
     cnrm.cloud.google.com/deletion-policy: abandon
 spec:
   resourceID: storage.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: maps-backend.googleapis.com
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: maps-backend.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: apikeys.googleapis.com
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: apikeys.googleapis.com

@@ -38,10 +38,13 @@ source "${CONFIG_FILE}"
 
 GKE_NODE_SA_EMAIL="${GKE_NODE_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 KCC_SA_EMAIL="${KCC_SA_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
+ENV_FILE="${REPO_ROOT}/.env"
+MAPS_KEY_DISPLAY_NAME="Geospatial Console Maps Key"
 
 echo "This will tear down the HSO deployment and infrastructure in project '${PROJECT_ID}' (${REGION}):"
 echo "  - App & GCS bucket via Config Connector (k8s/app/overlays/gcp)"
 echo "  - Core GCP infra via Config Connector (k8s/infra/gcp)"
+echo "  - Managed Google Maps API key ('${MAPS_KEY_DISPLAY_NAME}') and local .env"
 echo "  - GKE cluster '${CLUSTER_NAME}'"
 echo "  - Bootstrap Service Accounts '${KCC_SA_EMAIL}' and '${GKE_NODE_SA_EMAIL}'"
 echo "  - VPC subnet '${SUBNET_NAME}' and network '${NETWORK_NAME}'"
@@ -67,7 +70,7 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
     --project="${PROJECT_ID}" \
     --dns-endpoint
 
-  echo "==> [1/4] Removing app resources & StorageBucket via Config Connector (k8s/app/overlays/gcp)..."
+  echo "==> [1/5] Removing app resources & StorageBucket via Config Connector (k8s/app/overlays/gcp)..."
   # Unmount GCS FUSE workload first, then remove child IAMPolicyMembers before parent StorageBucket/IAMServiceAccount.
   kubectl delete \
     deployment/hso-console \
@@ -88,7 +91,7 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
     --ignore-not-found=true \
     --wait=true
 
-  echo "==> [2/4] Removing core GCP infrastructure via Config Connector (k8s/infra/gcp)..."
+  echo "==> [2/5] Removing core GCP infrastructure via Config Connector (k8s/infra/gcp)..."
   # Remove child IAMPolicyMembers before parent IAMServiceAccount and ArtifactRegistryRepository.
   kubectl delete iampolicymember.iam.cnrm.cloud.google.com \
     hso-cloudbuild-logs \
@@ -102,10 +105,25 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
     --ignore-not-found=true \
     --wait=true
 else
-  echo "==> [1/4 & 2/4] Cluster '${CLUSTER_NAME}' is not running (status: '${CLUSTER_STATUS:-NOT_FOUND}'); skipping in-cluster Config Connector deletion."
+  echo "==> [1/5 & 2/5] Cluster '${CLUSTER_NAME}' is not running (status: '${CLUSTER_STATUS:-NOT_FOUND}'); skipping in-cluster Config Connector deletion."
 fi
 
-echo "==> [3/4] Deleting bootstrap GKE cluster '${CLUSTER_NAME}' and bootstrap Service Accounts..."
+echo "==> [3/5] Deleting managed Google Maps API key ('${MAPS_KEY_DISPLAY_NAME}') and local .env..."
+if gcloud services list --enabled --project="${PROJECT_ID}" --filter="config.name=apikeys.googleapis.com" --format="value(config.name)" | grep -qx "apikeys.googleapis.com"; then
+  MAP_KEYS="$(gcloud services api-keys list \
+    --project="${PROJECT_ID}" \
+    --filter="displayName=\"${MAPS_KEY_DISPLAY_NAME}\"" \
+    --format="value(name)" 2>/dev/null || true)"
+  for key_name in ${MAP_KEYS}; do
+    gcloud services api-keys delete "${key_name}" \
+      --project="${PROJECT_ID}" \
+      --no-check-existing-usage \
+      --quiet
+  done
+fi
+rm -f "${ENV_FILE}"
+
+echo "==> [4/5] Deleting bootstrap GKE cluster '${CLUSTER_NAME}' and bootstrap Service Accounts..."
 if [[ -n "${CLUSTER_STATUS}" ]]; then
   gcloud container clusters delete "${CLUSTER_NAME}" \
     --region="${REGION}" \
@@ -145,7 +163,7 @@ if gcloud iam service-accounts describe "${GKE_NODE_SA_EMAIL}" --project="${PROJ
     --quiet
 fi
 
-echo "==> [4/4] Deleting bootstrap VPC subnet '${SUBNET_NAME}' and network '${NETWORK_NAME}'..."
+echo "==> [5/5] Deleting bootstrap VPC subnet '${SUBNET_NAME}' and network '${NETWORK_NAME}'..."
 if gcloud compute networks subnets describe "${SUBNET_NAME}" \
   --region="${REGION}" \
   --project="${PROJECT_ID}" >/dev/null 2>&1; then
