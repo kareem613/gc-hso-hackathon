@@ -4,7 +4,7 @@ Interactive Google Maps geospatial dataset explorer built as an exercise for a h
 
 ## Configuration
 
-> **Tip:** Using Gemini CLI or a compatible coding agent? Ask it to run the `getting-started` skill for a guided interactive setup.
+> **Tip:** Using Antigravity CLI or a compatible coding agent? Ask it to run the `getting-started` skill for a guided interactive setup.
 
 Create your local infrastructure configuration file from the template:
 
