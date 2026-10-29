@@ -16,6 +16,7 @@ spec:
     spec:
       serviceAccountName: hso-app-sa
       containers:
+        # --- Nginx: static frontend + /api reverse proxy -------------------
         - name: hso-console
           image: hso-console:latest
           imagePullPolicy: Always
@@ -29,8 +30,104 @@ spec:
             - name: datasets-volume
               mountPath: /usr/share/nginx/html/datasets
               readOnly: true
+            - name: nginx-config
+              mountPath: /etc/nginx/conf.d/default.conf
+              subPath: default.conf
+              readOnly: true
+          readinessProbe:
+            httpGet:
+              path: /index.html
+              port: http
+            initialDelaySeconds: 2
+            periodSeconds: 10
+
+        # --- Node.js API: AlloyDB -> JSON ---------------------------------
+        - name: hso-api
+          image: hso-api:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: api
+          env:
+            - name: PORT
+              value: "8080"
+            - name: PGHOST
+              value: "127.0.0.1"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: PGDATABASE
+            - name: PGUSER
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: PGUSER
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            failureThreshold: 6
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: api
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 128Mi
+            limits:
+              memory: 512Mi
+
+        # --- AlloyDB Auth Proxy: IAM auth + TLS over private IP ------------
+        - name: alloydb-auth-proxy
+          image: gcr.io/alloydb-connectors/alloydb-auth-proxy:1.13.4
+          args:
+            - "--auto-iam-authn"
+            - "--structured-logs"
+            - "--health-check"
+            - "--http-address=0.0.0.0"
+            - "--http-port=9090"
+            - "--port=5432"
+            - "$(ALLOYDB_INSTANCE_URI)"
+          env:
+            - name: ALLOYDB_INSTANCE_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: ALLOYDB_INSTANCE_URI
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          readinessProbe:
+            httpGet:
+              path: /readiness
+              port: 9090
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /liveness
+              port: 9090
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
       volumes:
         - name: datasets-volume
           persistentVolumeClaim:
             claimName: datasets-pvc
             readOnly: true
+        - name: nginx-config
+          configMap:
+            name: hso-nginx-config

@@ -36,6 +36,25 @@ kubectl wait --for=condition=Ready \
   iampolicymember.iam.cnrm.cloud.google.com/hso-node-ar-reader \
   --timeout=180s
 
+echo "==> Waiting for Private Services Access peering (ComputeAddress + ServiceNetworkingConnection) to become Ready..."
+kubectl wait --for=condition=Ready \
+  computeaddress.compute.cnrm.cloud.google.com/hso-alloydb-psa-range \
+  --timeout=300s
+kubectl wait --for=condition=Ready \
+  servicenetworkingconnection.servicenetworking.cnrm.cloud.google.com/hso-alloydb-psa-connection \
+  --timeout=600s
+
+echo "==> Waiting for AlloyDB cluster 'hso-alloydb' and primary instance 'hso-primary' to become Ready (first-time provisioning takes ~10-15 min)..."
+kubectl wait --for=condition=Ready \
+  alloydbcluster.alloydb.cnrm.cloud.google.com/hso-alloydb \
+  --timeout=1200s
+kubectl wait --for=condition=Ready \
+  alloydbinstance.alloydb.cnrm.cloud.google.com/hso-primary \
+  --timeout=1800s
+kubectl wait --for=condition=Ready \
+  alloydbuser.alloydb.cnrm.cloud.google.com/hso-app-iam-user \
+  --timeout=600s
+
 echo "==> Provisioning Google Maps API key and local .env..."
 "${SCRIPT_DIR}/ensure-maps-key.sh"
 

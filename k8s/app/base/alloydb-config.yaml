@@ -1,0 +1,13 @@
+# Runtime connection settings for the AlloyDB Auth Proxy sidecar and the API.
+# Placeholder values are substituted by the gcp overlay from k8s/config/infra.env.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hso-alloydb-config
+  labels:
+    app: hso-console
+data:
+  ALLOYDB_INSTANCE_URI: projects/PROJECT_ID/locations/REGION/clusters/hso-alloydb/instances/hso-primary
+  PGDATABASE: postgres
+  # IAM database user == Workload Identity GSA email without ".gserviceaccount.com"
+  PGUSER: hso-app-gsa@PROJECT_ID.iam

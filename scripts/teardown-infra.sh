@@ -43,6 +43,7 @@ MAPS_KEY_DISPLAY_NAME="Geospatial Console Maps Key"
 
 echo "This will tear down the HSO deployment and infrastructure in project '${PROJECT_ID}' (${REGION}):"
 echo "  - App & GCS bucket via Config Connector (k8s/app/overlays/gcp)"
+echo "  - AlloyDB cluster 'hso-alloydb' (+ primary instance, IAM user, PSA peering) via Config Connector"
 echo "  - Core GCP infra via Config Connector (k8s/infra/gcp)"
 echo "  - Managed Google Maps API key ('${MAPS_KEY_DISPLAY_NAME}') and local .env"
 echo "  - GKE cluster '${CLUSTER_NAME}'"
@@ -72,6 +73,8 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
 
   echo "==> [1/5] Removing app resources & StorageBucket via Config Connector (k8s/app/overlays/gcp)..."
   # Unmount GCS FUSE workload first, then remove child IAMPolicyMembers before parent StorageBucket/IAMServiceAccount.
+  kubectl delete job/hso-ingest --ignore-not-found=true --wait=true
+
   kubectl delete \
     deployment/hso-console \
     service/hso-console \
@@ -83,6 +86,9 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
 
   kubectl delete iampolicymember.iam.cnrm.cloud.google.com \
     hso-app-bucket-viewer \
+    hso-app-alloydb-client \
+    hso-app-alloydb-db-user \
+    hso-app-serviceusage-consumer \
     hso-app-wi-binding \
     --ignore-not-found=true \
     --wait=true
@@ -90,6 +96,18 @@ if [[ "${CLUSTER_STATUS}" == "RUNNING" || "${CLUSTER_STATUS}" == "RECONCILING" |
   kubectl delete -k "${REPO_ROOT}/k8s/app/overlays/gcp" \
     --ignore-not-found=true \
     --wait=true
+
+  echo "==> [2/5] Removing AlloyDB (user -> instance -> cluster -> PSA peering) via Config Connector..."
+  kubectl delete alloydbuser.alloydb.cnrm.cloud.google.com hso-app-iam-user \
+    --ignore-not-found=true --wait=true --timeout=300s || true
+  kubectl delete alloydbinstance.alloydb.cnrm.cloud.google.com hso-primary \
+    --ignore-not-found=true --wait=true --timeout=900s
+  kubectl delete alloydbcluster.alloydb.cnrm.cloud.google.com hso-alloydb \
+    --ignore-not-found=true --wait=true --timeout=900s
+  kubectl delete servicenetworkingconnection.servicenetworking.cnrm.cloud.google.com hso-alloydb-psa-connection \
+    --ignore-not-found=true --wait=true --timeout=600s
+  kubectl delete computeaddress.compute.cnrm.cloud.google.com hso-alloydb-psa-range \
+    --ignore-not-found=true --wait=true --timeout=300s
 
   echo "==> [2/5] Removing core GCP infrastructure via Config Connector (k8s/infra/gcp)..."
   # Remove child IAMPolicyMembers before parent IAMServiceAccount and ArtifactRegistryRepository.
@@ -137,7 +155,8 @@ for ROLE in \
   roles/editor \
   roles/iam.securityAdmin \
   roles/resourcemanager.projectIamAdmin \
-  roles/servicemanagement.admin; do
+  roles/servicemanagement.admin \
+  roles/servicenetworking.networksAdmin; do
   gcloud projects remove-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${KCC_SA_EMAIL}" \
     --role="${ROLE}" \

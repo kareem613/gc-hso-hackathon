@@ -7,12 +7,14 @@ resources:
   - artifact-registry.yaml
   - cloudbuild-iam.yaml
   - gke-node-iam.yaml
+  - alloydb.yaml
 
 configMapGenerator:
   - name: infra-derived-config
     literals:
       - GSA_DOMAIN=PROJECT_ID.iam.gserviceaccount.com
       - NODE_SA_PREFIX=serviceAccount:GKE_NODE_SA_NAME
+      - IAM_USER_DOMAIN=PROJECT_ID.iam
     options:
       disableNameSuffixHash: true
       annotations:
@@ -29,9 +31,49 @@ replacements:
           name: infra-derived-config
         fieldPaths:
           - data.GSA_DOMAIN
+          - data.IAM_USER_DOMAIN
         options:
           delimiter: "."
           index: 0
+      # AlloyDB / PSA resources
+      - select:
+          kind: ComputeAddress
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: ServiceNetworkingConnection
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: AlloyDBCluster
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: AlloyDBInstance
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: AlloyDBUser
+        fieldPaths:
+          - metadata.annotations.[cnrm.cloud.google.com/project-id]
+      - select:
+          kind: AlloyDBCluster
+        fieldPaths:
+          - spec.projectRef.external
+      - select:
+          kind: ComputeAddress
+        fieldPaths:
+          - spec.networkRef.external
+        options:
+          delimiter: "/"
+          index: 1
+      - select:
+          kind: AlloyDBCluster
+        fieldPaths:
+          - spec.networkConfig.networkRef.external
+        options:
+          delimiter: "/"
+          index: 1
       - select:
           kind: Service
           group: serviceusage.cnrm.cloud.google.com
@@ -113,3 +155,42 @@ replacements:
           kind: ArtifactRegistryRepository
         fieldPaths:
           - spec.location
+      - select:
+          kind: AlloyDBCluster
+        fieldPaths:
+          - spec.location
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.NETWORK_NAME
+    targets:
+      - select:
+          kind: ComputeAddress
+        fieldPaths:
+          - spec.networkRef.external
+        options:
+          delimiter: "/"
+          index: 4
+      - select:
+          kind: ServiceNetworkingConnection
+        fieldPaths:
+          - spec.networkRef.external
+      - select:
+          kind: AlloyDBCluster
+        fieldPaths:
+          - spec.networkConfig.networkRef.external
+        options:
+          delimiter: "/"
+          index: 4
+  - source:
+      kind: ConfigMap
+      name: infra-derived-config
+      fieldPath: data.IAM_USER_DOMAIN
+    targets:
+      - select:
+          kind: AlloyDBUser
+        fieldPaths:
+          - spec.resourceID
+        options:
+          delimiter: "@"
+          index: 1

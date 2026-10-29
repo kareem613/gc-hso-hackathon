@@ -1,0 +1,98 @@
+# AlloyDB for PostgreSQL: private-IP cluster on the bootstrap VPC.
+#
+# Resource chain (Config Connector reconciles dependencies in order):
+#   ComputeAddress (VPC_PEERING range)
+#     -> ServiceNetworkingConnection (Private Services Access peering)
+#       -> AlloyDBCluster
+#         -> AlloyDBInstance (PRIMARY, IAM authentication enabled)
+#         -> AlloyDBUser (IAM user for the hso-app-gsa Workload Identity GSA)
+#
+# PROJECT_ID / REGION / NETWORK_NAME placeholders are substituted by the
+# Kustomize replacements in kustomization.yaml from k8s/config/infra.env.
+apiVersion: compute.cnrm.cloud.google.com/v1beta1
+kind: ComputeAddress
+metadata:
+  name: hso-alloydb-psa-range
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  location: global
+  addressType: INTERNAL
+  purpose: VPC_PEERING
+  prefixLength: 16
+  description: "Private Services Access range for HSO AlloyDB"
+  networkRef:
+    external: projects/PROJECT_ID/global/networks/NETWORK_NAME
+---
+apiVersion: servicenetworking.cnrm.cloud.google.com/v1beta1
+kind: ServiceNetworkingConnection
+metadata:
+  name: hso-alloydb-psa-connection
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  service: servicenetworking.googleapis.com
+  networkRef:
+    external: NETWORK_NAME
+  reservedPeeringRanges:
+    - name: hso-alloydb-psa-range
+---
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBCluster
+metadata:
+  name: hso-alloydb
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-alloydb
+  location: REGION
+  clusterType: PRIMARY
+  displayName: "HSO Geospatial Console AlloyDB"
+  deletionPolicy: FORCE
+  projectRef:
+    external: PROJECT_ID
+  networkConfig:
+    networkRef:
+      external: projects/PROJECT_ID/global/networks/NETWORK_NAME
+    allocatedIpRange: hso-alloydb-psa-range
+  automatedBackupPolicy:
+    enabled: false
+  continuousBackupConfig:
+    enabled: false
+---
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBInstance
+metadata:
+  name: hso-primary
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-primary
+  instanceType: PRIMARY
+  availabilityType: ZONAL
+  displayName: "HSO AlloyDB Primary"
+  clusterRef:
+    name: hso-alloydb
+  machineConfig:
+    cpuCount: 2
+  databaseFlags:
+    alloydb.iam_authentication: "on"
+---
+# IAM database user for the Workload Identity GSA used by the API and ingest Job.
+# IAM principal names for service accounts drop the ".gserviceaccount.com" suffix.
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBUser
+metadata:
+  name: hso-app-iam-user
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-app-gsa@IAM_USER_DOMAIN
+  userType: ALLOYDB_IAM_USER
+  # alloydbiamuser is implicitly granted by AlloyDB for IAM users; declare it so
+  # Config Connector does not try to revoke it (which the API rejects).
+  databaseRoles:
+    - alloydbiamuser
+    - alloydbsuperuser
+  clusterRef:
+    name: hso-alloydb

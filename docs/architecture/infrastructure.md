@@ -6,7 +6,8 @@ This document describes the infrastructure layout, how static frontend assets an
 
 1. **Single-source configuration:** Local `k8s/config/infra.env` (copied from `k8s/config/infra.env.example`) feeds both `scripts/*.sh` and Kustomize (`k8s/config/kustomization.yaml` `configMapGenerator` + `replacements`), avoiding hardcoded project IDs or regions in manifests.
 2. **Cloud-agnostic workload base:** `k8s/app/base` uses only standard Kubernetes primitives (`Deployment`, `Service`, `ServiceAccount`, `PersistentVolumeClaim`) so the workload stays portable across GKE and hybrid/air-gapped Kubernetes targets (such as Google Distributed Cloud). All GCP-specific resources live in `k8s/infra/gcp` and `k8s/app/overlays/gcp`.
-3. **Declarative GCP management:** After cluster bootstrap, Config Connector reconciles GCP APIs, Artifact Registry, Cloud Storage, Service Accounts, and least-privilege IAM directly from Kubernetes manifests.
+3. **Declarative GCP management:** After cluster bootstrap, Config Connector reconciles GCP APIs, Artifact Registry, Cloud Storage, AlloyDB (PSA peering, cluster, instance, IAM user), Service Accounts, and least-privilege IAM directly from Kubernetes manifests.
+4. **Passwordless data tier:** AlloyDB is private-IP only on the bootstrap VPC. The app pod reaches it through an AlloyDB Auth Proxy sidecar using Workload Identity + IAM database authentication; no DB credentials are stored anywhere.
 
 ```mermaid
 flowchart TD
@@ -24,16 +25,24 @@ flowchart TD
     AR["ArtifactRegistryRepository (hso-repo)"]
     CBSA["Cloud Build & Node IAM (hso-cloudbuild-sa, node AR reader)"]
     MapsKey["Restricted Maps JS API Key (ensure-maps-key.sh -> .env)"]
+    PSA["ComputeAddress + ServiceNetworkingConnection (Private Services Access)"]
+    ADB["AlloyDBCluster hso-alloydb + AlloyDBInstance hso-primary (IAM auth on)"]
+    ADBUser["AlloyDBUser hso-app-gsa@PROJECT.iam (alloydbsuperuser)"]
+    PSA --> ADB --> ADBUser
   end
 
   subgraph AppDeploy["3. App & Storage Overlay (k8s/app/base + overlays/gcp)"]
     Secret["Secret/hso-env-secret (startup -> /.env)"]
-    Pod["Deployment/hso-console (Nginx serving src/ at /)"]
+    Pod["Deployment/hso-console: nginx (/ + /api proxy) | hso-api (Node) | alloydb-auth-proxy"]
+    Ingest["Job/hso-ingest (k8s/app/ingest): files on FUSE mount -> AlloyDB"]
     PVC["PVC/datasets-pvc (ReadOnlyMany)"]
     PV["Static PV/datasets-pv (gcsfuse.csi.storage.gke.io)"]
     Bucket["StorageBucket + Workload Identity (objectViewer)"]
     Secret --> Pod
     Pod --> PVC --> PV --> Bucket
+    Pod -. IAM DB auth .-> ADB
+    Ingest --> PVC
+    Ingest -. IAM DB auth .-> ADB
   end
 
   GKE --> CoreInfra --> AppDeploy
@@ -48,6 +57,9 @@ Both GKE (`Dockerfile` + Nginx, forwarded to `http://localhost:8090` via `script
 | `/` (`index.html`, JS, CSS) | `COPY src/ /usr/share/nginx/html/` | `./src/*` | `Dockerfile` copies `src/` directly into Nginx without a bundler build stage. |
 | `/.env` | Generated at container startup from `Secret/hso-env-secret` | `./.env` (auto-provisioned via `ensure-maps-key.sh` if `infra.env` exists) | Contains `GOOGLE_MAPS_API_KEY=<key>`. Fetch at runtime rather than hardcoding keys in HTML/JS. |
 | `/datasets/<file>` | Read-only GCS FUSE mount (`gs://<PROJECT_ID>-datasets/`) | `./datasets/<file>` (`Cache-Control: no-store`) | Datasets can be added or updated via `scripts/upload-datasets.sh` without rebuilding the image or restarting pods. |
+| `/api/*` | nginx `proxy_pass` -> `hso-api` container (`:8080`) -> AlloyDB via Auth Proxy | *(not served; use `DATA_SOURCE=file`)* | JSON endpoints: `/api/health`, `/api/datasets`, `/api/timeline-bounds`, `/api/wlc-events`, `/api/radar-tracks`, `/api/road-traffic`, `/api/collar-telemetry`, `/api/forum-threads`. See `docs/architecture/data-access.md`. |
+
+`/.env` also carries `DATA_SOURCE=alloydb|file` (default `alloydb` in GKE via `deploy-app.sh`; absent/`file` locally), which selects the frontend's `DataReader` implementation.
 
 ## Infrastructure & Packaging Pitfalls
 

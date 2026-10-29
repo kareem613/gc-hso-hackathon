@@ -1,0 +1,43 @@
+# Project-level IAM so the hso-app-gsa Workload Identity GSA can connect to
+# AlloyDB through the Auth Proxy with IAM database authentication.
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-alloydb-client
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/alloydb.client
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-alloydb-db-user
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/alloydb.databaseUser
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-serviceusage-consumer
+  annotations:
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/serviceusage.serviceUsageConsumer
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID

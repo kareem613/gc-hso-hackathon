@@ -1,0 +1,39 @@
+# Standalone kustomization for the one-shot AlloyDB ingest Job.
+# Kept separate from k8s/app/overlays/gcp because Job templates are immutable
+# and the Job must be deleted/recreated on every run (see scripts/ingest-datasets.sh).
+# Depends on the hso-app-sa ServiceAccount, datasets-pvc, and hso-alloydb-config
+# ConfigMap already deployed by k8s/app/overlays/gcp.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../config
+  - ingest-job.yaml
+
+replacements:
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.PROJECT_ID
+    targets:
+      - select:
+          kind: Job
+          name: hso-ingest
+        fieldPaths:
+          - spec.template.spec.containers.[name=hso-ingest].image
+        options:
+          delimiter: "/"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: infra-config
+      fieldPath: data.REGION
+    targets:
+      - select:
+          kind: Job
+          name: hso-ingest
+        fieldPaths:
+          - spec.template.spec.containers.[name=hso-ingest].image
+        options:
+          delimiter: "-docker.pkg.dev"
+          index: 0

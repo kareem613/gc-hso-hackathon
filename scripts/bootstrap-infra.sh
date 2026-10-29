@@ -150,7 +150,8 @@ for ROLE in \
   roles/editor \
   roles/iam.securityAdmin \
   roles/resourcemanager.projectIamAdmin \
-  roles/servicemanagement.admin; do
+  roles/servicemanagement.admin \
+  roles/servicenetworking.networksAdmin; do
   retry_with_backoff gcloud projects add-iam-policy-binding "${PROJECT_ID}" \
     --member="serviceAccount:${KCC_SA_EMAIL}" \
     --role="${ROLE}" \
