@@ -18,6 +18,15 @@ if [[ ! -f "${CONFIG_FILE}" ]]; then
   exit 1
 fi
 
+# Select the frontend data source (alloydb | file). Default: alloydb.
+DATA_SOURCE="${DATA_SOURCE:-alloydb}"
+if ! grep -q '^DATA_SOURCE=' "${ENV_FILE}"; then
+  printf 'DATA_SOURCE=%s\n' "${DATA_SOURCE}" >> "${ENV_FILE}"
+elif [[ -n "${DATA_SOURCE_OVERRIDE:-}" ]]; then
+  sed -i "s/^DATA_SOURCE=.*/DATA_SOURCE=${DATA_SOURCE_OVERRIDE}/" "${ENV_FILE}"
+fi
+echo "==> Frontend DATA_SOURCE=$(grep '^DATA_SOURCE=' "${ENV_FILE}" | cut -d= -f2) (override with DATA_SOURCE_OVERRIDE=file|alloydb)"
+
 echo "==> Applying Secret 'hso-env-secret' from .env..."
 kubectl create secret generic hso-env-secret \
   --from-env-file="${ENV_FILE}" \
@@ -40,9 +49,18 @@ kubectl wait --for=condition=Ready \
   iampolicymember.iam.cnrm.cloud.google.com/hso-app-bucket-viewer \
   --timeout=180s
 
+echo "==> Waiting for AlloyDB IAM bindings (alloydb.client, alloydb.databaseUser, serviceUsageConsumer) to become Ready..."
+kubectl wait --for=condition=Ready \
+  iampolicymember.iam.cnrm.cloud.google.com/hso-app-alloydb-client \
+  iampolicymember.iam.cnrm.cloud.google.com/hso-app-alloydb-db-user \
+  iampolicymember.iam.cnrm.cloud.google.com/hso-app-serviceusage-consumer \
+  --timeout=180s
+
 echo "==> Restarting and waiting for Deployment 'hso-console' rollout to complete..."
 kubectl rollout restart deployment/hso-console
-kubectl rollout status deployment/hso-console --timeout=180s
+kubectl rollout status deployment/hso-console --timeout=300s
 
-echo "==> App deployment is Ready. Test locally with:"
+echo "==> App deployment is Ready. Next steps:"
+echo "    ./scripts/upload-datasets.sh   # upload raw files to GCS"
+echo "    ./scripts/ingest-datasets.sh   # load them into AlloyDB"
 echo "    ./scripts/port-forward.sh"

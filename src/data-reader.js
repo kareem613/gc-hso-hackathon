@@ -462,75 +462,54 @@ function evaluateSegmentTrafficAtEpoch(seg, evalEpoch) {
    Concrete Implementation: FileDataReader (Static Files in /datasets/)
    ========================================================================== */
 
-export class FileDataReader extends DataReader {
-  #basePath;
+/* ==========================================================================
+   CachedDataReader: shared in-memory cache + windowing for concrete readers
+
+   Subclasses only implement `_loadRaw()` which returns the parsed, sorted
+   dataset records. Everything else (timeline bounds, per-call binary-search
+   windowing, collar grouping) is shared so FileDataReader and ApiDataReader
+   behave identically from the UI's perspective.
+   ========================================================================== */
+
+class CachedDataReader extends DataReader {
   #loadPromise = null;
   #cache = null;
 
   /**
-   * @param {{ basePath?: string }} [options]
+   * @returns {Promise<{
+   *   wlcEvents: Array<Object>,
+   *   radarTracks: Array<Object>,
+   *   collarPoints: Array<Object>,
+   *   trafficSegments: Array<Object>,
+   *   trafficSourceFile: string
+   * }>}
    */
-  constructor({ basePath = "/datasets" } = {}) {
-    super();
-    this.#basePath = basePath.replace(/\/+$/, "");
+  async _loadRaw() {
+    throw new Error("CachedDataReader._loadRaw() must be implemented by subclass");
   }
 
-  async #ensureLoaded() {
+  async _ensureLoaded() {
     if (this.#cache) return this.#cache;
     if (!this.#loadPromise) {
-      this.#loadPromise = this.#loadAllFromFiles();
+      this.#loadPromise = this._loadRaw().then((raw) => {
+        this.#cache = this.#buildCache(raw);
+        return this.#cache;
+      });
     }
     return this.#loadPromise;
   }
 
-  async #loadAllFromFiles() {
-    const base = this.#basePath;
-    const fetchText = async (url, optional = false) => {
-      try {
-        const res = await fetch(url);
-        if (!res.ok) {
-          if (optional) return "";
-          throw new Error(`HTTP ${res.status} fetching ${url}`);
-        }
-        const contentType = res.headers.get("content-type") || "";
-        if (optional && contentType.includes("text/html")) {
-          return "";
-        }
-        return await res.text();
-      } catch (err) {
-        if (optional) return "";
-        throw err;
-      }
-    };
-
-    let trafficSourceFile = "road_traffic.json";
-    const [wlcText, radarText, collarText, trafficText] =
-      await Promise.all([
-        fetchText(`${base}/wlc_syslog.log`, true),
-        fetchText(`${base}/yow_tower_radar.xml`, true),
-        fetchText(`${base}/gtv2_collar_telemetry.csv`, true),
-        (async () => {
-          for (const name of ["road_traffic.json", "road_traffic_sample.json"]) {
-            const txt = await fetchText(`${base}/${name}`, true);
-            if (txt) {
-              trafficSourceFile = name;
-              return txt;
-            }
-          }
-          return "";
-        })(),
-      ]);
-
-    const wlcEvents = parseWlcSyslog(wlcText);
+  #buildCache({
+    wlcEvents,
+    radarTracks,
+    collarPoints,
+    trafficSegments,
+    trafficSourceFile,
+  }) {
     const hasWlc = wlcEvents.length > 0;
     const facilityBriefing = parseIncidentBriefing("", wlcEvents);
-    const trafficSegments = parseTrafficJson(trafficText);
     const hasTraffic = trafficSegments.length > 0;
-    await yieldToMain();
-    const radarTracks = parseRadarXml(radarText);
     const hasRadar = radarTracks.length > 0;
-    await yieldToMain();
-    const collarPoints = parseCollarCsv(collarText);
     const hasCollarTelemetry = collarPoints.length > 0;
 
     let totalRadarPings = 0;
@@ -606,7 +585,7 @@ export class FileDataReader extends DataReader {
       maxEpoch = minEpoch + 60;
     }
 
-    this.#cache = {
+    return {
       hasAnyDataset,
       facilityBriefing,
       hasWlc,
@@ -623,12 +602,10 @@ export class FileDataReader extends DataReader {
       minEpoch,
       maxEpoch,
     };
-
-    return this.#cache;
   }
 
   async getTimelineBounds() {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     return {
       hasData: cache.hasAnyDataset,
       minEpoch: cache.minEpoch,
@@ -637,12 +614,12 @@ export class FileDataReader extends DataReader {
   }
 
   async getFacilityBriefing() {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     return cache.facilityBriefing;
   }
 
   async getWlcEvents({ startEpoch, endEpoch } = {}) {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     const [startIdx, endIdx] = findEpochRangeIndices(
       cache.wlcEvents,
       startEpoch,
@@ -656,7 +633,7 @@ export class FileDataReader extends DataReader {
   }
 
   async getRadarTracks({ startEpoch, endEpoch } = {}) {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     const tracks = cache.radarTracks.map((tr) => {
       const [pStart, pEnd] = findEpochRangeIndices(tr.pings, startEpoch, endEpoch);
       return {
@@ -683,7 +660,7 @@ export class FileDataReader extends DataReader {
   }
 
   async getCollarTelemetry({ startEpoch, endEpoch } = {}) {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     const [cStart, cEnd] = findEpochRangeIndices(
       cache.collarPoints,
       startEpoch,
@@ -714,7 +691,7 @@ export class FileDataReader extends DataReader {
   }
 
   async getRoadTraffic({ startEpoch, endEpoch } = {}) {
-    const cache = await this.#ensureLoaded();
+    const cache = await this._ensureLoaded();
     const sEp = startEpoch ?? cache.minEpoch;
     const eEp = endEpoch ?? cache.maxEpoch;
     const evalEpoch = Math.floor((sEp + eEp) / 2);
@@ -731,4 +708,162 @@ export class FileDataReader extends DataReader {
       evalEpoch,
     };
   }
+}
+
+/* ==========================================================================
+   Concrete Implementation: FileDataReader (Static Files in /datasets/)
+   ========================================================================== */
+
+export class FileDataReader extends CachedDataReader {
+  #basePath;
+
+  /**
+   * @param {{ basePath?: string }} [options]
+   */
+  constructor({ basePath = "/datasets" } = {}) {
+    super();
+    this.#basePath = basePath.replace(/\/+$/, "");
+  }
+
+  async _loadRaw() {
+    const base = this.#basePath;
+    const fetchText = async (url, optional = false) => {
+      try {
+        const res = await fetch(url);
+        if (!res.ok) {
+          if (optional) return "";
+          throw new Error(`HTTP ${res.status} fetching ${url}`);
+        }
+        const contentType = res.headers.get("content-type") || "";
+        if (optional && contentType.includes("text/html")) {
+          return "";
+        }
+        return await res.text();
+      } catch (err) {
+        if (optional) return "";
+        throw err;
+      }
+    };
+
+    let trafficSourceFile = "road_traffic.json";
+    const [wlcText, radarText, collarText, trafficText] =
+      await Promise.all([
+        fetchText(`${base}/wlc_syslog.log`, true),
+        fetchText(`${base}/yow_tower_radar.xml`, true),
+        fetchText(`${base}/gtv2_collar_telemetry.csv`, true),
+        (async () => {
+          for (const name of ["road_traffic.json", "road_traffic_sample.json"]) {
+            const txt = await fetchText(`${base}/${name}`, true);
+            if (txt) {
+              trafficSourceFile = name;
+              return txt;
+            }
+          }
+          return "";
+        })(),
+      ]);
+
+    const wlcEvents = parseWlcSyslog(wlcText);
+    const trafficSegments = parseTrafficJson(trafficText);
+    await yieldToMain();
+    const radarTracks = parseRadarXml(radarText);
+    await yieldToMain();
+    const collarPoints = parseCollarCsv(collarText);
+
+    return { wlcEvents, radarTracks, collarPoints, trafficSegments, trafficSourceFile };
+  }
+}
+
+/* ==========================================================================
+   Concrete Implementation: ApiDataReader (AlloyDB via the /api backend)
+
+   Fetches each dataset once in bulk from the Node.js API (which reads from
+   AlloyDB) and then reuses the shared in-memory windowing, so the timeline
+   scrubber stays as responsive as with local files.
+   ========================================================================== */
+
+export class ApiDataReader extends CachedDataReader {
+  #baseUrl;
+
+  /**
+   * @param {{ baseUrl?: string }} [options]
+   */
+  constructor({ baseUrl = "/api" } = {}) {
+    super();
+    this.#baseUrl = baseUrl.replace(/\/+$/, "");
+  }
+
+  async #fetchJson(path, optional = false) {
+    const url = `${this.#baseUrl}${path}`;
+    try {
+      const res = await fetch(url, { headers: { Accept: "application/json" } });
+      if (!res.ok) {
+        if (optional) return null;
+        throw new Error(`HTTP ${res.status} fetching ${url}`);
+      }
+      return await res.json();
+    } catch (err) {
+      if (optional) return null;
+      throw err;
+    }
+  }
+
+  async _loadRaw() {
+    const [wlc, radar, traffic, collar] = await Promise.all([
+      this.#fetchJson("/wlc-events"),
+      this.#fetchJson("/radar-tracks"),
+      this.#fetchJson("/road-traffic"),
+      this.#fetchJson("/collar-telemetry", true),
+    ]);
+
+    // Server guarantees sorted-by-epoch output; sort defensively anyway since
+    // the shared windowing relies on it.
+    const wlcEvents = (wlc?.events || []).slice().sort((a, b) => a.epoch - b.epoch);
+
+    const radarTracks = (radar?.tracks || []).map((tr) => ({
+      track_id: tr.track_id,
+      callsign: tr.callsign,
+      radar_type: tr.radar_type,
+      transponder_squawk: tr.transponder_squawk,
+      rcs_profile: tr.rcs_profile,
+      remark: tr.remark || "",
+      isBioFlock: Boolean(tr.isBioFlock),
+      isVfrSpecial: Boolean(tr.isVfrSpecial),
+      isWeather: Boolean(tr.isWeather),
+      pings: (tr.pings || []).slice().sort((a, b) => a.epoch - b.epoch),
+    }));
+    await yieldToMain();
+
+    const trafficSegments = (traffic?.segments || []).map((seg) => ({
+      segment_id: seg.segment_id || "SEG",
+      name: seg.name || "Road Segment",
+      road_class: seg.road_class || "Road",
+      speed_limit_kmh: Number(seg.speed_limit_kmh) || 50,
+      path: Array.isArray(seg.path) ? seg.path : [],
+      snapshots: (seg.snapshots || []).slice().sort((a, b) => a.epoch - b.epoch),
+    }));
+
+    const collarPoints = (collar?.points || []).slice().sort((a, b) => a.epoch - b.epoch);
+
+    return {
+      wlcEvents,
+      radarTracks,
+      collarPoints,
+      trafficSegments,
+      trafficSourceFile: traffic?.sourceFile || "road_traffic.json",
+    };
+  }
+}
+
+/**
+ * Factory: choose the DataReader implementation from runtime config.
+ * @param {{ DATA_SOURCE?: string }} env parsed from /.env
+ * @returns {DataReader}
+ */
+export function createDataReader(env = {}) {
+  const source = String(env.DATA_SOURCE || "file").trim().toLowerCase();
+  if (source === "alloydb" || source === "api") {
+    return new ApiDataReader();
+  }
+  return new FileDataReader();
 }

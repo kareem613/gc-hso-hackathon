@@ -2,6 +2,8 @@
 
 Interactive Google Maps geospatial dataset explorer built as an exercise for a hackathon, visualizing synchronized wireless syslog events, radar tracks, telemetry feeds, and road traffic across a scrubbable timeline.
 
+Datasets are stored in **AlloyDB for PostgreSQL** (private IP, IAM authentication) and served to the frontend by a small Node.js API (`api/`) running alongside nginx in the same pod. The original static-file path (`/datasets/*` via GCS FUSE) is retained and selectable with `DATA_SOURCE=file`.
+
 ## Configuration
 
 > **Tip:** Using Antigravity CLI or a compatible coding agent? Ask it to run the `getting-started` skill for a guided interactive setup.
@@ -22,21 +24,38 @@ Run the lifecycle scripts in order from the repository root:
 # 1. Bootstrap custom VPC/subnet, least-privilege GKE node & Config Connector SAs, and private-node GKE cluster
 ./scripts/bootstrap-infra.sh
 
-# 2. Declaratively enable GCP & Maps APIs, create Artifact Registry & IAM via Config Connector, and provision the Maps API key (.env)
+# 2. Declaratively enable GCP & Maps APIs, create Artifact Registry & IAM, provision AlloyDB (PSA peering,
+#    cluster, primary instance, IAM DB user) via Config Connector, and provision the Maps API key (.env)
+#    (first run takes ~15 min while AlloyDB provisions)
 ./scripts/apply-core-infra.sh
 
-# 3. Build and push the Nginx frontend container image via Cloud Build
+# 3. Build and push the Nginx frontend image and the Node.js API/ingest image via Cloud Build
 ./scripts/build-image.sh
 
-# 4. Create the runtime .env Secret and deploy the app, private GCS bucket, Workload Identity, and GCS FUSE mount
+# 4. Create the runtime .env Secret (incl. DATA_SOURCE=alloydb) and deploy the app pod
+#    (nginx + hso-api + AlloyDB Auth Proxy), private GCS bucket, Workload Identity, IAM, and GCS FUSE mount
 ./scripts/deploy-app.sh
 
 # 5. Upload local ./datasets/* files into gs://<PROJECT_ID>-datasets/
 ./scripts/upload-datasets.sh
 
-# 6. Forward http://localhost:8090 to the Kubernetes service (override with --port <port>)
+# 6. Load the uploaded datasets into AlloyDB (Kubernetes Job; idempotent, re-run after new uploads)
+./scripts/ingest-datasets.sh
+
+# 7. Forward http://localhost:8090 to the Kubernetes service (override with --port <port>)
 ./scripts/port-forward.sh
 ```
+
+### Switching the data source
+
+The frontend reads `DATA_SOURCE` from `/.env`:
+
+| Value | Behaviour |
+|---|---|
+| `alloydb` (default on GKE) | `ApiDataReader` -> `GET /api/*` -> AlloyDB |
+| `file` | `FileDataReader` -> static `/datasets/*` from the GCS FUSE mount |
+
+To roll back to files without touching AlloyDB: `DATA_SOURCE_OVERRIDE=file ./scripts/deploy-app.sh`.
 
 Open `http://localhost:8090` in your browser.
 
@@ -44,7 +63,7 @@ Open `http://localhost:8090` in your browser.
 
 ## Teardown
 
-To cleanly remove all deployed resources (including the managed Maps API key and `.env`):
+To cleanly remove all deployed resources (including AlloyDB, the managed Maps API key and `.env`):
 
 ```bash
 ./scripts/teardown-infra.sh

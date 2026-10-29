@@ -3,9 +3,11 @@
    High-Performance Canvas OverlayView, Pluggable DataReader & Time Scrubber UI
    ========================================================================== */
 
-import { FileDataReader } from "./data-reader.js";
+import { createDataReader } from "./data-reader.js";
 
-const dataReader = new FileDataReader();
+// Selected at startup from /.env (DATA_SOURCE=alloydb|file); see createDataReader().
+let dataReader = null;
+let DATA_SOURCE_LABEL = "Local Files";
 
 const FACILITY_CENTER = { lat: 45.3507, lng: -75.8518 };
 const REGIONAL_CENTER = { lat: 45.355, lng: -75.8518 };
@@ -182,7 +184,7 @@ async function loadAllDatasets() {
 
   const subtitleEl = document.getElementById("header-subtitle");
   if (subtitleEl) {
-    subtitleEl.textContent = `${FACILITY_COORDS_LABEL} | ${FACILITY_NAME}`;
+    subtitleEl.textContent = `${FACILITY_COORDS_LABEL} | ${FACILITY_NAME} | Data: ${DATA_SOURCE_LABEL}`;
   }
   const apCountEl = document.getElementById("stat-wlc-aps");
   if (apCountEl) {
@@ -487,28 +489,47 @@ function getDotSprite(radius, fillColor, strokeColor, lineWidth, dpr) {
   return sprite;
 }
 
+let envConfigPromise = null;
+
 async function loadEnvConfig() {
-  const env = {};
-  try {
-    const res = await fetch("/.env");
-    if (res.ok) {
-      const text = await res.text();
-      for (const rawLine of text.split(/\r?\n/)) {
-        const line = rawLine.trim();
-        if (!line || line.startsWith("#")) continue;
-        const eqIdx = line.indexOf("=");
-        if (eqIdx > 0) {
-          const k = line.slice(0, eqIdx).trim();
-          const v = line
-            .slice(eqIdx + 1)
-            .trim()
-            .replace(/^['"]|['"]$/g, "");
-          env[k] = v;
+  if (envConfigPromise) return envConfigPromise;
+  envConfigPromise = (async () => {
+    const env = {};
+    try {
+      const res = await fetch("/.env");
+      if (res.ok) {
+        const text = await res.text();
+        for (const rawLine of text.split(/\r?\n/)) {
+          const line = rawLine.trim();
+          if (!line || line.startsWith("#")) continue;
+          const eqIdx = line.indexOf("=");
+          if (eqIdx > 0) {
+            const k = line.slice(0, eqIdx).trim();
+            const v = line
+              .slice(eqIdx + 1)
+              .trim()
+              .replace(/^['"]|['"]$/g, "");
+            env[k] = v;
+          }
         }
       }
-    }
-  } catch {}
-  return env;
+    } catch {}
+    return env;
+  })();
+  return envConfigPromise;
+}
+
+/**
+ * Instantiate the DataReader implementation selected by DATA_SOURCE in /.env
+ * (defaults to local static files when unset).
+ */
+async function initDataReader() {
+  const env = await loadEnvConfig();
+  dataReader = createDataReader(env);
+  const source = String(env.DATA_SOURCE || "file").trim().toLowerCase();
+  DATA_SOURCE_LABEL =
+    source === "alloydb" || source === "api" ? "AlloyDB" : "Local Files";
+  document.body.dataset.dataSource = source;
 }
 
 function bootstrapGoogleMapsLoader(apiKey) {
@@ -2126,6 +2147,7 @@ function setupControls() {
 }
 
 window.addEventListener("DOMContentLoaded", async () => {
+  await initDataReader();
   await loadAllDatasets();
   setupControls();
   await initGoogleMap();

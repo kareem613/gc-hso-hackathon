@@ -4,5 +4,7 @@ kind: Kustomization
 resources:
   - serviceaccount.yaml
   - pvc.yaml
+  - nginx-config.yaml
+  - alloydb-config.yaml
   - deployment.yaml
   - service.yaml

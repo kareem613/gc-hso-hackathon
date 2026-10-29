@@ -36,3 +36,57 @@ Datasets span heterogeneous formats (space-delimited key-value `.log` syslog lin
   - Slice `[startEpoch, endEpoch]` in $O(\log n)$ time using binary search (`lowerBound` / `upperBound`) rather than running `.filter()` across tens of thousands of records on every slider movement.
 - **Evaluating snapshot-based feeds (road traffic) against a time window:**
   - Periodic snapshot feeds store speed samples at fixed intervals (e.g., every 15 minutes) rather than discrete point events. Evaluate each road segment at the window midpoint (`Math.floor((startEpoch + endEpoch) / 2)`) by linearly interpolating between the two bracketing snapshots.
+
+## 4. AlloyDB Data Path (`DATA_SOURCE=alloydb`)
+
+The reader abstraction above is now exercised by two concrete implementations in `src/data-reader.js`, selected at startup by `createDataReader(env)` from the `DATA_SOURCE` value served in `/.env`:
+
+| `DATA_SOURCE` | Reader | Source of truth |
+|---|---|---|
+| `file` (default) | `FileDataReader` | Static `/datasets/*` files (GCS FUSE mount) parsed in the browser |
+| `alloydb` | `ApiDataReader` | AlloyDB for PostgreSQL via the `hso-api` container (`GET /api/*`) |
+
+Both extend `CachedDataReader`, which owns the memoized load `Promise`, timeline-bounds calculation, collar grouping, and the $O(\log n)$ binary-search windowing. A reader only implements `_loadRaw()` and returns `{ wlcEvents, radarTracks, collarPoints, trafficSegments, trafficSourceFile }`.
+
+### Request flow
+
+```
+Browser ──GET /api/wlc-events──▶ nginx ──proxy_pass──▶ hso-api (Node/Express, :8080)
+                                                          │  pg over localhost:5432
+                                                          ▼
+                                              alloydb-auth-proxy sidecar (--auto-iam-authn)
+                                                          │  TLS, private IP, IAM token
+                                                          ▼
+                                              AlloyDB hso-alloydb / hso-primary
+```
+
+- **Hybrid windowing:** `ApiDataReader` fetches each dataset **once in bulk** (`/api/wlc-events`, `/api/radar-tracks`, `/api/road-traffic`, `/api/collar-telemetry`) and then reuses the in-memory binary search, so scrubbing never hits the network. Every endpoint also accepts `?start=<epoch>&end=<epoch>` for server-side range filtering via the indexed `epoch BIGINT` columns.
+- **Shape parity:** the API returns records with exactly the keys the browser parsers produce (`isAnomaly`, `pings[]`, `snapshots[]`, `path[]`, …) so the UI code is reader-agnostic. Server-side parsing lives in `api/lib/parsers.js` and mirrors `src/data-reader.js` (XML via `fast-xml-parser` instead of `DOMParser`).
+- **Collar telemetry** is not ingested (the CSV is not part of `datasets/`); `/api/collar-telemetry` returns `{ available: false }` so the UI hides that layer exactly as before.
+- **Forum threads** are ingested and exposed at `/api/forum-threads` (+ `?start=&end=`) but have no UI yet.
+
+### Schema (`api/schema.sql`)
+
+| Table | Notes |
+|---|---|
+| `wlc_events` | one row per syslog line; typed columns + `attrs JSONB` for unmapped `key=value` pairs; `epoch` indexed |
+| `radar_tracks` / `radar_pings` | track metadata + per-ping positions; `(track_id, epoch)` indexed |
+| `road_segments` / `road_snapshots` | segment geometry as `path JSONB` + 15-minute speed snapshots |
+| `forum_threads` / `forum_posts` | scraped forum threads and their posts |
+| `dataset_loads` | provenance: source file, row count, `loaded_at` per table (surfaced at `/api/datasets`) |
+
+Lat/lng are `DOUBLE PRECISION`; PostGIS is not enabled.
+
+### Ingest
+
+`scripts/ingest-datasets.sh` runs the `hso-ingest` Kubernetes Job (`k8s/app/ingest/`): the same `hso-api` image executing `node ingest.js` with the Auth Proxy as a native sidecar (`initContainers[].restartPolicy: Always`, so it exits with the Job). It reads from the GCS FUSE mount at `/datasets`, applies `schema.sql` idempotently, and `TRUNCATE`s + bulk-inserts each dataset in its own transaction. Re-run it any time new files land in the bucket.
+
+### Authentication
+
+No database passwords exist anywhere. The pod's Kubernetes ServiceAccount (`hso-app-sa`) is bound via Workload Identity to `hso-app-gsa`, which holds `roles/alloydb.client`, `roles/alloydb.databaseUser`, and `roles/serviceusage.serviceUsageConsumer`. The Auth Proxy exchanges that identity for a short-lived token and the API connects as the IAM database user `hso-app-gsa@<PROJECT_ID>.iam` (granted `alloydbsuperuser` so ingest can create tables).
+
+### Pitfalls
+
+- **`PGUSER` must omit `.gserviceaccount.com`:** AlloyDB IAM principals for service accounts are `<name>@<project>.iam`.
+- **`alloydb.iam_authentication=on`** is a per-instance database flag; without it IAM logins fail with `password authentication failed`.
+- **Rollback:** redeploy with `DATA_SOURCE_OVERRIDE=file ./scripts/deploy-app.sh` to serve from the FUSE mount again without touching AlloyDB.

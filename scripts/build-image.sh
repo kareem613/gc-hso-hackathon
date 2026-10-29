@@ -18,6 +18,7 @@ source "${CONFIG_FILE}"
 : "${REGION:?REGION must be set in k8s/config/infra.env}"
 
 IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/hso-repo/hso-console:latest"
+API_IMAGE_URI="${REGION}-docker.pkg.dev/${PROJECT_ID}/hso-repo/hso-api:latest"
 CLOUDBUILD_SA="projects/${PROJECT_ID}/serviceAccounts/hso-cloudbuild-sa@${PROJECT_ID}.iam.gserviceaccount.com"
 
 # Retry helper for GCP IAM-to-GCS/Artifact Registry access propagation after fresh SA creation
@@ -49,3 +50,13 @@ retry_with_backoff gcloud builds submit "${REPO_ROOT}" \
   --tag="${IMAGE_URI}"
 
 echo "==> Image published: ${IMAGE_URI}"
+
+echo "==> Building and pushing '${API_IMAGE_URI}' (AlloyDB API + ingest) via Cloud Build..."
+retry_with_backoff gcloud builds submit "${REPO_ROOT}/api" \
+  --project="${PROJECT_ID}" \
+  --region="${REGION}" \
+  --service-account="${CLOUDBUILD_SA}" \
+  --default-buckets-behavior=regional-user-owned-bucket \
+  --tag="${API_IMAGE_URI}"
+
+echo "==> Image published: ${API_IMAGE_URI}"

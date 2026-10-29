@@ -6,12 +6,15 @@ resources:
   - ../../base
   - bucket.yaml
   - pv.yaml
+  - alloydb-iam.yaml
 
 configMapGenerator:
   - name: gcp-derived-config
     literals:
       - GSA_DOMAIN=PROJECT_ID.iam.gserviceaccount.com
       - WI_POOL=PROJECT_ID.svc.id.goog[default/hso-app-sa]
+      - IAM_USER_DOMAIN=PROJECT_ID.iam
+      - ALLOYDB_INSTANCE_URI=projects/PROJECT_ID/locations/REGION/clusters/hso-alloydb/instances/hso-primary
     options:
       disableNameSuffixHash: true
       annotations:
@@ -56,6 +59,8 @@ patches:
             containers:
               - name: hso-console
                 image: REGION-docker.pkg.dev/PROJECT_ID/hso-repo/hso-console:latest
+              - name: hso-api
+                image: REGION-docker.pkg.dev/PROJECT_ID/hso-repo/hso-api:latest
 
 replacements:
   - source:
@@ -69,9 +74,42 @@ replacements:
         fieldPaths:
           - data.GSA_DOMAIN
           - data.WI_POOL
+          - data.IAM_USER_DOMAIN
         options:
           delimiter: "."
           index: 0
+      - select:
+          kind: ConfigMap
+          name: gcp-derived-config
+        fieldPaths:
+          - data.ALLOYDB_INSTANCE_URI
+        options:
+          delimiter: "/"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-alloydb-client
+        fieldPaths:
+          - spec.resourceRef.external
+        options:
+          delimiter: "/"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-alloydb-db-user
+        fieldPaths:
+          - spec.resourceRef.external
+        options:
+          delimiter: "/"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-serviceusage-consumer
+        fieldPaths:
+          - spec.resourceRef.external
+        options:
+          delimiter: "/"
+          index: 1
       - select:
           kind: StorageBucket
         fieldPaths:
@@ -104,6 +142,7 @@ replacements:
           name: hso-console
         fieldPaths:
           - spec.template.spec.containers.[name=hso-console].image
+          - spec.template.spec.containers.[name=hso-api].image
         options:
           delimiter: "/"
           index: 1
@@ -125,6 +164,43 @@ replacements:
           name: hso-app-bucket-viewer
         fieldPaths:
           - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-alloydb-client
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-alloydb-db-user
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+      - select:
+          kind: IAMPolicyMember
+          name: hso-app-serviceusage-consumer
+        fieldPaths:
+          - spec.member
+        options:
+          delimiter: "@"
+          index: 1
+  - source:
+      kind: ConfigMap
+      name: gcp-derived-config
+      fieldPath: data.IAM_USER_DOMAIN
+    targets:
+      - select:
+          kind: ConfigMap
+          name: hso-alloydb-config
+        fieldPaths:
+          - data.PGUSER
         options:
           delimiter: "@"
           index: 1
@@ -155,6 +231,25 @@ replacements:
           name: hso-console
         fieldPaths:
           - spec.template.spec.containers.[name=hso-console].image
+          - spec.template.spec.containers.[name=hso-api].image
         options:
           delimiter: "-docker.pkg.dev"
           index: 0
+      - select:
+          kind: ConfigMap
+          name: gcp-derived-config
+        fieldPaths:
+          - data.ALLOYDB_INSTANCE_URI
+        options:
+          delimiter: "/"
+          index: 3
+  - source:
+      kind: ConfigMap
+      name: gcp-derived-config
+      fieldPath: data.ALLOYDB_INSTANCE_URI
+    targets:
+      - select:
+          kind: ConfigMap
+          name: hso-alloydb-config
+        fieldPaths:
+          - data.ALLOYDB_INSTANCE_URI

@@ -24,7 +24,7 @@ Guide the developer in Antigravity CLI to the point where they can run all the s
 ## Step 1: Intro, Explained CLI Check & Multiple-Choice `PROJECT_ID` Prompt
 
 1. **Introduce the project & announce the prerequisite check first:**
-   - Give a 1–2 sentence intro: this project is an interactive Google Maps geospatial explorer built as a hackathon exercise, deployed to GKE using Kustomize, Config Connector, and GCS FUSE (with Google Maps API enablement and `.env` key provisioning automated by the scripts).
+   - Give a 1–2 sentence intro: this project is an interactive Google Maps geospatial explorer built as a hackathon exercise, deployed to GKE using Kustomize, Config Connector, GCS FUSE, and AlloyDB (via a Node.js API + Auth Proxy sidecar) (with Google Maps API enablement and `.env` key provisioning automated by the scripts).
    - **Before running any shell command**, output a short line explaining that you are about to check for `gcloud`, `kubectl`, and `gke-gcloud-auth-plugin` on `PATH`, verify active `gcloud` authentication, inspect accessible GCP projects, and check for an existing `k8s/config/infra.env`.
 
 2. **Run the read-only CLI & auth check and display a compact status line:**
@@ -63,5 +63,6 @@ Once the developer selects or enters `PROJECT_ID`:
      ./scripts/build-image.sh
      ./scripts/deploy-app.sh
      ./scripts/upload-datasets.sh
+     ./scripts/ingest-datasets.sh
      ./scripts/port-forward.sh
      ```
