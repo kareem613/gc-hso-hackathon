@@ -18,11 +18,15 @@ source "${CONFIG_FILE}"
 : "${PROJECT_ID:?PROJECT_ID must be set in k8s/config/infra.env}"
 
 shopt -s nullglob
-FILES=("${DATASETS_DIR}"/*)
+FILES=()
+for f in "${DATASETS_DIR}"/*; do
+  [[ -f "${f}" ]] && FILES+=("${f}")
+done
+
 if [[ ${#FILES[@]} -eq 0 ]]; then
-  echo "Error: No dataset files found in ${DATASETS_DIR}" >&2
-  echo "Run ./scripts/copy-dataset.sh first to populate datasets/." >&2
-  exit 1
+  echo "==> No dataset files found in ${DATASETS_DIR} yet (skipping upload)."
+  echo "    Place dataset files in ./datasets/ and re-run ./scripts/upload-datasets.sh."
+  exit 0
 fi
 
 BUCKET_URI="gs://${PROJECT_ID}-datasets/"

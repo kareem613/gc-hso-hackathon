@@ -1,4 +1,5 @@
-datasets/gtv2_collar_telemetry.csv
+datasets/*
+!datasets/.gitkeep
 .env
 k8s/config/infra.env
 api/node_modules/

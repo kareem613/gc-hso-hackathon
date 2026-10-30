@@ -1,92 +1,49 @@
 # Application Data Access Specification & Pitfalls
 
-When building your frontend from scratch in `src/`, design your data layer around static `/datasets/*` HTTP reads while keeping UI and map rendering decoupled from raw file formats and resilient to missing feeds.
+Datasets in this architecture are staged to Cloud Storage (`./scripts/upload-datasets.sh`), ingested into **AlloyDB for PostgreSQL** by the one-shot `hso-ingest` Kubernetes Job (`./scripts/ingest-datasets.sh`), and served to the browser via `/api/*` JSON routes (`api/server.js`). Use these guidelines to avoid common ingestion, SQL, and UI bottlenecks as you build out the data layer.
 
-## 1. Isolate Parsing Behind a Storage-Agnostic Reader Interface
-
-Datasets span heterogeneous formats (space-delimited key-value `.log` syslog lines, nested `.xml` radar tracks, high-frequency `.csv` telemetry rows, and `.json` traffic/forum snapshots). Avoid scattering `fetch()` calls or format parsers across UI components:
-
-- Define a narrow async reader abstraction (e.g., `DataReader`) returning normalized domain records and integer Unix `epoch` seconds:
-  - **Global bounds:** `{ hasData: boolean, minEpoch: number, maxEpoch: number }`
-  - **Per-feed window queries (`{ startEpoch, endEpoch }`):** `{ available: boolean, ...normalizedRecordsAndCounts }`
-- **Why it matters:** UI controls, timeline scrubbers, and map layers consume uniform JavaScript objects, allowing you to swap a static `/datasets/*` file reader for a REST API or database reader later without rewriting rendering code.
-
-## 2. Runtime Configuration (`/.env`) & `/datasets/*` Discovery
-
-- **Load `GOOGLE_MAPS_API_KEY` dynamically from `GET /.env`:** Both `scripts/run-local.sh` and the GKE Nginx startup script serve `/.env` over HTTP. Parse `KEY=VALUE` lines (ignoring blank/`#` lines and stripping optional quotes) and bootstrap the Maps JS loader dynamically (`google.maps.importLibrary`) instead of hardcoding a key in `index.html`.
-- **Treat every `/datasets/<file>` feed as optional:** New feeds may arrive mid-exercise via `scripts/upload-datasets.sh`, or `/datasets/` may start partially populated or completely empty.
-
-## 3. Data Access & Progressive UI Pitfalls
-
-- **Crashing on missing datasets or SPA HTML fallbacks:**
-  - A missing file returns `HTTP 404` (or in some dev servers, an HTML fallback with `Content-Type: text/html`). Check `res.ok` *and* guard against unexpected `<!DOCTYPE html>` responses before passing text to JSON/XML/CSV parsers.
-  - Return `{ available: false }` with empty collections when a file is absent or empty.
-- **`RangeError: Invalid time value` when computing timeline bounds:**
-  - Initializing `minEpoch = Infinity` and `maxEpoch = -Infinity` works only when at least one time-series record exists. Include **all** time-bearing feeds (including periodic road-traffic snapshot timestamps) in bounds calculation, and fall back to finite default bounds with `hasData: false` when zero datasets are present so `new Date(epoch * 1000).toISOString()` never throws.
-- **Ghost UI controls and the CSS `[hidden]` flexbox trap:**
-  - When a feed has `available === false`, completely hide its layer toggle, map legend items, map overlays, and detail drawer panels (and hide the timeline scrubber + legend altogether when `hasData === false`).
-  - **CSS Pitfall:** Setting `el.hidden = true` in JavaScript does **nothing** if your stylesheet defines `.panel { display: flex; }` or `display: grid`, because author `display` rules override the browser UA `[hidden]` rule. Add `[hidden] { display: none !important; }` to your stylesheet and toggle `.hidden` consistently rather than mixing `.hidden` with inline `el.style.display`.
-- **Blocking the main thread during startup parsing:**
-  - Coalesce concurrent startup calls onto a single memoized load `Promise` so files are fetched in parallel (`Promise.all`) and parsed once.
-  - Parsing large XML documents and tens of thousands of CSV lines back-to-back freezes first paint. Yield between heavy parse stages (`await scheduler.yield?.()` with a `setTimeout(r, 0)` fallback, or use a Web Worker).
-- **Repeated `Date.parse()` calls on high-frequency CSVs:**
-  - Multi-device telemetry CSVs often repeat the exact same ISO-8601 timestamp string across dozens of consecutive rows. Caching `{ lastRawTimestamp, lastEpoch }` during CSV parsing eliminates >99% of `Date.parse()` invocations across 30,000+ rows.
-- **$O(n)$ array filtering during 60fps timeline scrubbing:**
-  - Raw feeds mix Unix epoch integers and ISO-8601 strings. Convert every timestamp **once** during ingestion to integer Unix `epoch` seconds and sort each time-series array ascending.
-  - Slice `[startEpoch, endEpoch]` in $O(\log n)$ time using binary search (`lowerBound` / `upperBound`) rather than running `.filter()` across tens of thousands of records on every slider movement.
-- **Evaluating snapshot-based feeds (road traffic) against a time window:**
-  - Periodic snapshot feeds store speed samples at fixed intervals (e.g., every 15 minutes) rather than discrete point events. Evaluate each road segment at the window midpoint (`Math.floor((startEpoch + endEpoch) / 2)`) by linearly interpolating between the two bracketing snapshots.
-
-## 4. AlloyDB Data Path (`DATA_SOURCE=alloydb`)
-
-The reader abstraction above is now exercised by two concrete implementations in `src/data-reader.js`, selected at startup by `createDataReader(env)` from the `DATA_SOURCE` value served in `/.env`:
-
-| `DATA_SOURCE` | Reader | Source of truth |
-|---|---|---|
-| `file` (default) | `FileDataReader` | Static `/datasets/*` files (GCS FUSE mount) parsed in the browser |
-| `alloydb` | `ApiDataReader` | AlloyDB for PostgreSQL via the `hso-api` container (`GET /api/*`) |
-
-Both extend `CachedDataReader`, which owns the memoized load `Promise`, timeline-bounds calculation, collar grouping, and the $O(\log n)$ binary-search windowing. A reader only implements `_loadRaw()` and returns `{ wlcEvents, radarTracks, collarPoints, trafficSegments, trafficSourceFile }`.
-
-### Request flow
+## 1. End-to-End Data Flow
 
 ```
-Browser ──GET /api/wlc-events──▶ nginx ──proxy_pass──▶ hso-api (Node/Express, :8080)
-                                                          │  pg over localhost:5432
-                                                          ▼
-                                              alloydb-auth-proxy sidecar (--auto-iam-authn)
-                                                          │  TLS, private IP, IAM token
-                                                          ▼
-                                              AlloyDB hso-alloydb / hso-primary
+./datasets/* ──upload-datasets.sh──▶ gs://<PROJECT_ID>-datasets/
+                                              │  GCS FUSE mount (/datasets)
+                                              ▼
+                                    Job/hso-ingest (api/ingest.js + api/schema.sql)
+                                              │  127.0.0.1:5432 via alloydb-auth-proxy (IAM auth)
+                                              ▼
+                                    AlloyDB (hso-alloydb / hso-primary)
+                                              ▲  127.0.0.1:5432 via alloydb-auth-proxy (IAM auth)
+                                              │
+Browser (src/) ──GET /api/*──▶ nginx ──proxy_pass──▶ hso-api (api/server.js, :8080)
 ```
 
-- **Hybrid windowing:** `ApiDataReader` fetches each dataset **once in bulk** (`/api/wlc-events`, `/api/radar-tracks`, `/api/road-traffic`, `/api/collar-telemetry`) and then reuses the in-memory binary search, so scrubbing never hits the network. Every endpoint also accepts `?start=<epoch>&end=<epoch>` for server-side range filtering via the indexed `epoch BIGINT` columns.
-- **Shape parity:** the API returns records with exactly the keys the browser parsers produce (`isAnomaly`, `pings[]`, `snapshots[]`, `path[]`, …) so the UI code is reader-agnostic. Server-side parsing lives in `api/lib/parsers.js` and mirrors `src/data-reader.js` (XML via `fast-xml-parser` instead of `DOMParser`).
-- **Collar telemetry** is not ingested (the CSV is not part of `datasets/`); `/api/collar-telemetry` returns `{ available: false }` so the UI hides that layer exactly as before.
-- **Forum threads** are ingested and exposed at `/api/forum-threads` (+ `?start=&end=`) but have no UI yet.
+- **Shared DB helpers (`api/lib/db.js`):** Pre-configures a `pg.Pool` (`pool`), `waitForDb()`, `withTransaction(fn)`, `bulkInsert(client, table, columns, rows)`, and `BIGINT` (`OID 20`) parsing to JavaScript numbers.
+- **Passwordless IAM authentication:** `hso-app-sa` binds via Workload Identity to `hso-app-gsa` (`roles/alloydb.client`, `roles/alloydb.databaseUser`, `roles/serviceusage.serviceUsageConsumer`), logging in as `hso-app-gsa@<PROJECT_ID>.iam`.
 
-### Schema (`api/schema.sql`)
+## 2. Ingestion & Schema Design (`api/schema.sql`, `api/ingest.js`)
 
-| Table | Notes |
-|---|---|
-| `wlc_events` | one row per syslog line; typed columns + `attrs JSONB` for unmapped `key=value` pairs; `epoch` indexed |
-| `radar_tracks` / `radar_pings` | track metadata + per-ping positions; `(track_id, epoch)` indexed |
-| `road_segments` / `road_snapshots` | segment geometry as `path JSONB` + 15-minute speed snapshots |
-| `forum_threads` / `forum_posts` | scraped forum threads and their posts |
-| `dataset_loads` | provenance: source file, row count, `loaded_at` per table (surfaced at `/api/datasets`) |
+- **Make `schema.sql` and `ingest.js` idempotent:** New dataset files may arrive mid-exercise, requiring `./scripts/upload-datasets.sh` and `./scripts/ingest-datasets.sh` (after `./scripts/build-image.sh` when `api/` code changes) to run multiple times.
+  - Use `CREATE TABLE IF NOT EXISTS` and `CREATE INDEX IF NOT EXISTS` in `api/schema.sql`.
+  - Reload each feed inside `withTransaction(...)` (`TRUNCATE <table> RESTART IDENTITY` followed by `bulkInsert(...)`) so partial failures roll back cleanly and re-runs never duplicate rows.
+- **Treat every dataset file in `DATASETS_DIR` as optional:** A missing file (`err.code === "ENOENT"`) should log cleanly and leave that feed's table empty (`0` rows) rather than crashing the entire ingest Job.
+- **Normalize mixed timestamps once to indexed Unix `epoch BIGINT` seconds:** Raw feeds often mix integer Unix seconds and ISO-8601 strings (UTC or fixed-offset local time). Parse timestamps during ingestion, store canonical integer `epoch BIGINT` columns with B-tree indexes (`(epoch)` or `(series_id, epoch)`), and keep `JSONB` columns for flexible extra attributes or coordinate arrays.
+- **Deduplicate `Date.parse()` on high-frequency CSVs:** Multi-device telemetry CSVs frequently repeat the exact same ISO-8601 timestamp string across dozens of consecutive rows. Caching `{ lastRawTimestamp, lastEpoch }` during parsing eliminates >99% of `Date.parse()` calls across tens of thousands of rows.
 
-Lat/lng are `DOUBLE PRECISION`; PostGIS is not enabled.
+## 3. API Contract & Frontend Reader Boundary (`api/server.js`, `src/`)
 
-### Ingest
+- **Isolate `/api/*` calls behind a narrow frontend reader abstraction:** Keep `fetch("/api/...")` calls out of map rendering and DOM event handlers. Have your data module return uniform structures:
+  - **Global timeline bounds:** `{ hasData: boolean, minEpoch: number | null, maxEpoch: number | null }`
+  - **Per-feed payloads:** `{ available: boolean, ...recordsAndCounts }`
+- **Hybrid windowing (load once, slice in $O(\log n)$ client-side):**
+  - Never issue network `fetch("/api/...")` requests on every 60fps timeline slider `input` event.
+  - Coalesce startup fetches onto a single memoized load `Promise`, return records pre-sorted ascending by `epoch`, and slice `[startEpoch, endEpoch]` in memory in $O(\log n)$ time using binary search (`lowerBound` / `upperBound`) rather than $O(n)$ `.filter()` scans.
+  - Optionally accept `?start=<epoch>&end=<epoch>` on `/api/*` routes (backed by your `epoch` SQL indexes) for server-filtered queries or ad-hoc inspection.
+- **Interpolate periodic snapshot feeds:** Feeds that record periodic state snapshots (e.g., road segment speeds every 15 minutes) rather than point events should be evaluated at the active window midpoint (`Math.floor((startEpoch + endEpoch) / 2)`) by linearly interpolating between the two bracketing snapshots.
 
-`scripts/ingest-datasets.sh` runs the `hso-ingest` Kubernetes Job (`k8s/app/ingest/`): the same `hso-api` image executing `node ingest.js` with the Auth Proxy as a native sidecar (`initContainers[].restartPolicy: Always`, so it exits with the Job). It reads from the GCS FUSE mount at `/datasets`, applies `schema.sql` idempotently, and `TRUNCATE`s + bulk-inserts each dataset in its own transaction. Re-run it any time new files land in the bucket.
+## 4. AlloyDB, Node & Progressive UI Pitfalls
 
-### Authentication
-
-No database passwords exist anywhere. The pod's Kubernetes ServiceAccount (`hso-app-sa`) is bound via Workload Identity to `hso-app-gsa`, which holds `roles/alloydb.client`, `roles/alloydb.databaseUser`, and `roles/serviceusage.serviceUsageConsumer`. The Auth Proxy exchanges that identity for a short-lived token and the API connects as the IAM database user `hso-app-gsa@<PROJECT_ID>.iam` (granted `alloydbsuperuser` so ingest can create tables).
-
-### Pitfalls
-
-- **`PGUSER` must omit `.gserviceaccount.com`:** AlloyDB IAM principals for service accounts are `<name>@<project>.iam`.
-- **`alloydb.iam_authentication=on`** is a per-instance database flag; without it IAM logins fail with `password authentication failed`.
-- **Rollback:** redeploy with `DATA_SOURCE_OVERRIDE=file ./scripts/deploy-app.sh` to serve from the FUSE mount again without touching AlloyDB.
+- **Postgres 65,535 bind-parameter limit on large inserts:** A single parameterized `INSERT` with 35,000+ rows × multiple columns exceeds PostgreSQL's `65535`-parameter wire limit and throws an error. Always batch multi-row inserts via `bulkInsert()` in `api/lib/db.js`.
+- **Node.js has no built-in browser `DOMParser`:** `api/ingest.js` runs in Node 22 (`node:22-alpine`), where `DOMParser` is undefined. When adding an XML parser library (e.g., `fast-xml-parser`), update **both** `api/package.json` and `api/package-lock.json` (`npm install --prefix api <pkg>`) so `npm ci --omit=dev` succeeds in Cloud Build.
+- **AlloyDB IAM `PGUSER` formatting:** Service account IAM DB principals omit `.gserviceaccount.com` (`<sa>@<project>.iam`), and the instance must keep `alloydb.iam_authentication=on` (`k8s/infra/gcp/alloydb.yaml`); otherwise connections fail with `password authentication failed`.
+- **`RangeError: Invalid time value` when zero datasets are loaded:** Guard timeline bounds when all tables are empty (`hasData: false`). Never pass `null`, `Infinity`, or `-Infinity` into `new Date(epoch * 1000).toISOString()`—fall back to finite default bounds and hide timeline controls when `hasData === false`.
+- **Ghost UI controls & the CSS `[hidden]` flexbox trap:** Hide layer toggles, legend items, overlays, and detail panels whenever a feed reports `available === false` (and hide the legend and timeline scrubber completely when `hasData === false`). Keep `[hidden] { display: none !important; }` in `src/index.css`—without it, any rule like `.panel { display: flex; }` or `display: grid` overrides the browser default `[hidden]` stylesheet and leaves hidden panels visible.

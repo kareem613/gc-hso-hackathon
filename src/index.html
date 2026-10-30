@@ -8,7 +8,7 @@
   <script>
   {
     const colorScheme = localStorage.getItem("color-scheme");
-    if (colorScheme) {
+    if (colorScheme === "dark" || colorScheme === "light") {
       document.querySelector('meta[name="color-scheme"]').content = colorScheme;
       document.documentElement.classList.add(
         colorScheme === "dark" ? "theme-dark" : "theme-light"
@@ -16,8 +16,8 @@
     }
   }
   </script>
-  <title>INC-2026-1012 | Carling Campus Geospatial Dataset Viewer (FAC-OTT-01)</title>
-  <meta name="description" content="Interactive Google Maps geospatial dataset explorer for Incident #INC-2026-1012 at Carling Campus Government Complex (FAC-OTT-01).">
+  <title>INC-2026-1012 | Carling Campus Geospatial Console (FAC-OTT-01)</title>
+  <meta name="description" content="Interactive Google Maps geospatial starter console for Incident #INC-2026-1012 at Carling Campus Government Complex (FAC-OTT-01).">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
@@ -27,15 +27,14 @@
   <header class="app-header">
     <div class="header-brand">
       <span class="incident-tag">#INC-2026-1012</span>
-      <div>
-        <h1>FAC-OTT-01 Geospatial Dataset Explorer</h1>
+      <div class="header-titles">
+        <h1>FAC-OTT-01 Geospatial Console</h1>
         <div id="header-subtitle" class="header-subtitle">45.3507° N, -75.8518° W | Carling Campus Government Complex</div>
       </div>
     </div>
 
     <nav class="header-controls" aria-label="Map View Controls">
       <button type="button" id="btn-zoom-facility" class="action-btn">Zoom Facility (FAC-OTT-01)</button>
-      <button type="button" id="btn-zoom-regional" class="action-btn">Zoom Regional (YOW TCA)</button>
       <div id="map-mode-group" class="segmented-group" role="group" aria-label="Map Basemap Style">
         <button type="button" class="seg-btn active" data-map-mode="hybrid">Satellite</button>
         <button type="button" class="seg-btn" data-map-mode="dark">Dark Map</button>
@@ -46,271 +45,9 @@
   </header>
 
   <main class="workspace-layout">
-    <!-- Left Collapsible Drawer: Datasets & Dual-Handle Time Window Filter -->
-    <div id="left-drawer" class="pane-drawer left-drawer">
-      <aside id="left-sidebar" class="left-panel scrollable-panel" aria-label="Dataset Toggles and Time Window Filter">
-      <section class="panel-section">
-        <div class="section-header">
-          <h2 class="section-title">Datasets</h2>
-        </div>
-        <div class="layer-list">
-          <div id="datasets-empty-msg" class="datasets-empty-msg" hidden>No datasets loaded.</div>
-
-          <label id="layer-row-wlc" for="toggle-layer-wlc" class="layer-toggle-row" hidden>
-            <input type="checkbox" id="toggle-layer-wlc" class="visually-hidden" checked>
-            <span class="layer-meta">
-              <span class="layer-name">WLC Syslogs</span>
-              <span class="layer-kv-list">
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Source:</span>
-                  <span class="layer-kv-val">wlc_syslog.log</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Access Points:</span>
-                  <span id="stat-wlc-aps" class="layer-kv-val">3 APs</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Events:</span>
-                  <span id="stat-wlc-events" class="layer-kv-val accent">1,206 / 1,206</span>
-                </span>
-              </span>
-            </span>
-          </label>
-
-          <label id="layer-row-radar" for="toggle-layer-radar" class="layer-toggle-row" hidden>
-            <input type="checkbox" id="toggle-layer-radar" class="visually-hidden" checked>
-            <span class="layer-meta">
-              <span class="layer-name">CYOW Tower Radar</span>
-              <span class="layer-kv-list">
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Source:</span>
-                  <span class="layer-kv-val">yow_tower_radar.xml</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Tracks:</span>
-                  <span id="stat-radar-tracks" class="layer-kv-val accent">10 / 10</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Pings:</span>
-                  <span id="stat-radar-pings" class="layer-kv-val accent">40 / 40</span>
-                </span>
-              </span>
-            </span>
-          </label>
-
-          <label id="layer-row-collars" for="toggle-layer-collars" class="layer-toggle-row" hidden>
-            <input type="checkbox" id="toggle-layer-collars" class="visually-hidden" checked>
-            <span class="layer-meta">
-              <span class="layer-name">Collar &amp; Buoy Telemetry</span>
-              <span class="layer-kv-list">
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Source:</span>
-                  <span class="layer-kv-val">gtv2_collar_telemetry.csv</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Hardware:</span>
-                  <span id="stat-collar-hw" class="layer-kv-val accent">2 / 2</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Points:</span>
-                  <span id="stat-collar-points" class="layer-kv-val accent">35,665 / 35,665</span>
-                </span>
-              </span>
-            </span>
-          </label>
-
-          <label id="layer-row-traffic" for="toggle-layer-traffic" class="layer-toggle-row" hidden>
-            <input type="checkbox" id="toggle-layer-traffic" class="visually-hidden" checked>
-            <span class="layer-meta">
-              <span class="layer-name">Road Traffic</span>
-              <span class="layer-kv-list">
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Source:</span>
-                  <span id="stat-traffic-source" class="layer-kv-val">road_traffic.json</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Segments:</span>
-                  <span id="stat-traffic-segments" class="layer-kv-val accent">3 / 3</span>
-                </span>
-                <span class="layer-kv-row">
-                  <span class="layer-kv-key">Flow:</span>
-                  <span id="stat-traffic-flow" class="layer-kv-val accent">--</span>
-                </span>
-              </span>
-            </span>
-          </label>
-        </div>
-      </section>
-      </aside>
-      <button
-        type="button"
-        id="btn-collapse-left"
-        class="pane-edge-toggle left-edge-toggle"
-        aria-expanded="true"
-        aria-controls="left-sidebar"
-        title="Collapse Left Pane"
-      >◀</button>
-    </div>
-
-    <!-- Full-Bleed Map Stage (Center) -->
     <section class="map-stage" aria-label="Interactive Google Map">
-      <div id="map-legend" class="map-legend-overlay" hidden>
-        <div class="legend-item" data-legend-layer="wlc" hidden>
-          <span class="legend-swatch" style="background:#ef4444;"></span>
-          <span>AP (GTV2 Spike / Warn)</span>
-        </div>
-        <div class="legend-item" data-legend-layer="wlc" hidden>
-          <span class="legend-swatch" style="background:#10b981;"></span>
-          <span>AP (Nominal)</span>
-        </div>
-        <div class="legend-item" data-legend-layer="radar" hidden>
-          <span class="legend-swatch" style="background:#06b6d4;"></span>
-          <span>Radar: Primary (BIO_FLOCK)</span>
-        </div>
-        <div class="legend-item" data-legend-layer="radar" hidden>
-          <span class="legend-swatch" style="background:#10b981;"></span>
-          <span>Radar: VFR / Heli / Seaplane</span>
-        </div>
-        <div class="legend-item" data-legend-layer="radar" hidden>
-          <span class="legend-swatch" style="background:#a855f7;"></span>
-          <span>Radar: Commercial IFR</span>
-        </div>
-        <div class="legend-item" data-legend-layer="radar" hidden>
-          <span class="legend-swatch" style="background:#ec4899;"></span>
-          <span>Radar: Weather</span>
-        </div>
-        <div class="legend-item" data-legend-layer="collars" hidden>
-          <span class="legend-swatch" style="background:#facc15;"></span>
-          <span>CSV: GTV2 Collar</span>
-        </div>
-        <div class="legend-item" data-legend-layer="collars" hidden>
-          <span class="legend-swatch" style="background:#f97316;"></span>
-          <span>CSV: River Buoy</span>
-        </div>
-        <div class="legend-item" data-legend-layer="traffic" hidden>
-          <span class="legend-swatch" style="background:linear-gradient(90deg,#22c55e 0 33%,#f59e0b 33% 66%,#ef4444 66% 100%);"></span>
-          <span>Traffic: Fast / Mod / Heavy</span>
-        </div>
-      </div>
-
-      <div id="map-canvas" role="application" aria-label="Ottawa River Facility Map"></div>
-
-      <!-- Floating Bottom Timeline Scrubber Bar -->
-      <div id="timeline-scrubber-bar" class="map-timeline-overlay" role="region" aria-label="Timeline Scrubber Controls" hidden>
-        <div class="timeline-header-row">
-          <div class="timeline-transport">
-            <button type="button" id="btn-step-back" class="timeline-icon-btn" title="Step Window Backward" aria-label="Step Window Backward">⏮</button>
-            <button type="button" id="btn-play-pause" class="timeline-play-btn" aria-label="Play Timeline">▶ Play</button>
-            <button type="button" id="btn-step-fwd" class="timeline-icon-btn" title="Step Window Forward" aria-label="Step Window Forward">⏭</button>
-          </div>
-
-          <div class="timeline-readout">
-            <span id="scrubber-utc-readout" class="timeline-time-badge">UTC: -- → --</span>
-            <span id="scrubber-est-readout" class="timeline-est-badge">EST: -- → --</span>
-            <span id="scrubber-span-badge" class="timeline-span-badge">Full (30h)</span>
-          </div>
-
-          <div class="timeline-presets">
-            <div class="timeline-group-wrap">
-              <span class="timeline-group-label">Window</span>
-              <div id="window-preset-group" class="segmented-group" role="group" aria-label="Time Window Width">
-                <button type="button" class="seg-btn" data-window-sec="300">5m</button>
-                <button type="button" class="seg-btn" data-window-sec="900">15m</button>
-                <button type="button" class="seg-btn" data-window-sec="1800">30m</button>
-                <button type="button" class="seg-btn" data-window-sec="3600">1h</button>
-                <button type="button" class="seg-btn" data-window-sec="14400">4h</button>
-                <button type="button" class="seg-btn active" data-window-sec="full">Full</button>
-              </div>
-            </div>
-
-            <div class="timeline-group-wrap">
-              <span class="timeline-group-label">Speed</span>
-              <div id="playback-speed-group" class="segmented-group" role="group" aria-label="Playback Speed">
-                <button type="button" class="seg-btn" data-speed="1">1x</button>
-                <button type="button" class="seg-btn active" data-speed="5">5x</button>
-                <button type="button" class="seg-btn" data-speed="15">15x</button>
-                <button type="button" class="seg-btn" data-speed="60">60x</button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="timeline-track-row">
-          <span id="label-global-min" class="timeline-bound-label">--</span>
-          <div id="timeline-track-wrapper" class="dual-slider-wrapper" title="Drag highlighted window to scrub, or drag handles to resize">
-            <div class="dual-slider-track"></div>
-            <div id="dual-slider-fill" class="dual-slider-fill" title="Drag to slide time window"></div>
-            <input
-              type="range"
-              id="slider-min"
-              class="dual-range-input"
-              min="0"
-              max="100"
-              step="15"
-              value="0"
-              aria-label="Time Window Start"
-            >
-            <input
-              type="range"
-              id="slider-max"
-              class="dual-range-input"
-              min="0"
-              max="100"
-              step="15"
-              value="100"
-              aria-label="Time Window End"
-            >
-          </div>
-          <span id="label-global-max" class="timeline-bound-label">--</span>
-        </div>
-      </div>
+      <div id="map-canvas" role="application" aria-label="Carling Campus Facility Map"></div>
     </section>
-
-    <!-- Right Collapsible Drawer: Dataset Detail Boxes (Flights, Hardware Groups, Filtered WLC Syslogs) -->
-    <div id="right-drawer" class="pane-drawer right-drawer" hidden>
-      <button
-        type="button"
-        id="btn-collapse-right"
-        class="pane-edge-toggle right-edge-toggle"
-        aria-expanded="true"
-        aria-controls="right-sidebar"
-        title="Collapse Right Pane"
-      >▶</button>
-      <aside id="right-sidebar" class="right-panel scrollable-panel" aria-label="Dataset Detail Filters and Feeds">
-        <!-- CYOW Radar Flights Selector Box (Shown when yow_tower_radar.xml is enabled) -->
-        <section id="radar-flights-section" class="panel-section" hidden>
-          <div class="section-header">
-            <h2 class="section-title">CYOW Radar Flights</h2>
-            <div style="display:flex;gap:0.35rem;">
-              <button type="button" id="btn-flights-all" class="action-btn" style="padding:0.16rem 0.45rem;font-size:0.66rem;">Select All</button>
-              <button type="button" id="btn-flights-none" class="action-btn" style="padding:0.16rem 0.45rem;font-size:0.66rem;">Deselect All</button>
-            </div>
-          </div>
-          <div id="radar-flights-list" class="flight-list scrollable-panel" role="group" aria-label="CYOW Radar Flights"></div>
-        </section>
-
-        <!-- Collar & Buoy Hardware Groups Box (Shown when gtv2_collar_telemetry.csv is enabled) -->
-        <section id="collar-hw-section" class="panel-section" hidden>
-          <div class="section-header">
-            <h2 class="section-title">Telemetry Hardware (collar_hw)</h2>
-            <div style="display:flex;gap:0.35rem;">
-              <button type="button" id="btn-collar-hw-all" class="action-btn" style="padding:0.16rem 0.45rem;font-size:0.66rem;">Select All</button>
-              <button type="button" id="btn-collar-hw-none" class="action-btn" style="padding:0.16rem 0.45rem;font-size:0.66rem;">Deselect All</button>
-            </div>
-          </div>
-          <div id="collar-hw-list" class="flight-list scrollable-panel" role="group" aria-label="Collar Hardware Groups"></div>
-        </section>
-
-        <!-- WLC Syslog Feed (Shown when wlc_syslog.log is enabled) -->
-        <section id="wlc-syslog-section" class="panel-section" hidden>
-          <div class="section-header">
-            <h2 class="section-title">Filtered WLC Syslog Sample</h2>
-            <span id="syslog-count-badge" class="layer-badge">0 events</span>
-          </div>
-          <div id="syslog-terminal" class="syslog-terminal scrollable-panel" role="log" aria-live="polite"></div>
-        </section>
-      </aside>
-    </div>
   </main>
 
   <script type="module" src="./app.js"></script>

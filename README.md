@@ -1,8 +1,8 @@
 # Incident Response Geospatial Console
 
-Interactive Google Maps geospatial dataset explorer built as an exercise for a hackathon, visualizing synchronized wireless syslog events, radar tracks, telemetry feeds, and road traffic across a scrubbable timeline.
+Starter repository for a geospatial hackathon exercise. Ships a Google Maps JavaScript starter UI (`src/`) alongside pre-wired GKE, Config Connector, GCS FUSE dataset staging, and **AlloyDB for PostgreSQL** (private IP, IAM database authentication, Node.js `/api/*` server, and one-shot Kubernetes ingest Job).
 
-Datasets are stored in **AlloyDB for PostgreSQL** (private IP, IAM authentication) and served to the frontend by a small Node.js API (`api/`) running alongside nginx in the same pod. The original static-file path (`/datasets/*` via GCS FUSE) is retained and selectable with `DATA_SOURCE=file`.
+Read `incident_briefing.md` for scenario context and `docs/architecture/` for implementation guidelines and pitfalls to avoid as you build out dataset ingestion, API routes, and map visualizations.
 
 ## Configuration
 
@@ -32,38 +32,33 @@ Run the lifecycle scripts in order from the repository root:
 # 3. Build and push the Nginx frontend image and the Node.js API/ingest image via Cloud Build
 ./scripts/build-image.sh
 
-# 4. Create the runtime .env Secret (incl. DATA_SOURCE=alloydb) and deploy the app pod
-#    (nginx + hso-api + AlloyDB Auth Proxy), private GCS bucket, Workload Identity, IAM, and GCS FUSE mount
+# 4. Create the runtime .env Secret and deploy the app pod (nginx + API + AlloyDB Auth Proxy),
+#    private GCS staging bucket, Workload Identity, IAM, and GCS FUSE PersistentVolume
 ./scripts/deploy-app.sh
 
-# 5. Upload local ./datasets/* files into gs://<PROJECT_ID>-datasets/
+# 5. Upload any dataset files placed in ./datasets/ into gs://<PROJECT_ID>-datasets/
 ./scripts/upload-datasets.sh
 
-# 6. Load the uploaded datasets into AlloyDB (Kubernetes Job; idempotent, re-run after new uploads)
+# 6. Run the Kubernetes ingest Job (applies api/schema.sql and executes api/ingest.js against /datasets -> AlloyDB)
 ./scripts/ingest-datasets.sh
 
 # 7. Forward http://localhost:8090 to the Kubernetes service (override with --port <port>)
 ./scripts/port-forward.sh
 ```
 
-### Switching the data source
-
-The frontend reads `DATA_SOURCE` from `/.env`:
-
-| Value | Behaviour |
-|---|---|
-| `alloydb` (default on GKE) | `ApiDataReader` -> `GET /api/*` -> AlloyDB |
-| `file` | `FileDataReader` -> static `/datasets/*` from the GCS FUSE mount |
-
-To roll back to files without touching AlloyDB: `DATA_SOURCE_OVERRIDE=file ./scripts/deploy-app.sh`.
-
 Open `http://localhost:8090` in your browser.
 
-*(For local development without GKE, run `./scripts/run-local.sh` to serve the app on `http://localhost:8080`, or pass `--port <port>` to override.)*
+*(For local frontend development without GKE, run `./scripts/run-local.sh` to serve `./src` on `http://localhost:8080`, or pass `--port <port>` / `--api <origin>` to override.)*
+
+## Where to Build
+
+- **`api/schema.sql` & `api/ingest.js`:** Define idempotent AlloyDB tables/indexes and parse dataset files mounted at `/datasets` (from `gs://<PROJECT_ID>-datasets/` via GCS FUSE) into AlloyDB.
+- **`api/server.js`:** Expose `/api/*` JSON endpoints querying AlloyDB through the shared pool in `api/lib/db.js` (`/api/health` is pre-wired).
+- **`src/`:** Extend the starter Google Maps UI (`index.html`, `index.css`, `app.js`) to query `/api/*` and visualize datasets.
 
 ## Teardown
 
-To cleanly remove all deployed resources (including AlloyDB, the managed Maps API key and `.env`):
+To cleanly remove all deployed resources (including AlloyDB, the managed Maps API key, and `.env`):
 
 ```bash
 ./scripts/teardown-infra.sh

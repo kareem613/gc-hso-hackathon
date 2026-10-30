@@ -18,15 +18,6 @@ if [[ ! -f "${CONFIG_FILE}" ]]; then
   exit 1
 fi
 
-# Select the frontend data source (alloydb | file). Default: alloydb.
-DATA_SOURCE="${DATA_SOURCE:-alloydb}"
-if ! grep -q '^DATA_SOURCE=' "${ENV_FILE}"; then
-  printf 'DATA_SOURCE=%s\n' "${DATA_SOURCE}" >> "${ENV_FILE}"
-elif [[ -n "${DATA_SOURCE_OVERRIDE:-}" ]]; then
-  sed -i "s/^DATA_SOURCE=.*/DATA_SOURCE=${DATA_SOURCE_OVERRIDE}/" "${ENV_FILE}"
-fi
-echo "==> Frontend DATA_SOURCE=$(grep '^DATA_SOURCE=' "${ENV_FILE}" | cut -d= -f2) (override with DATA_SOURCE_OVERRIDE=file|alloydb)"
-
 echo "==> Applying Secret 'hso-env-secret' from .env..."
 kubectl create secret generic hso-env-secret \
   --from-env-file="${ENV_FILE}" \

@@ -52,9 +52,6 @@ patches:
         name: hso-console
       spec:
         template:
-          metadata:
-            annotations:
-              gke-gcsfuse/volumes: "true"
           spec:
             containers:
               - name: hso-console

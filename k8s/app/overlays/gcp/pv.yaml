@@ -13,8 +13,8 @@ spec:
     name: datasets-pvc
   mountOptions:
     - implicit-dirs
-    - uid=101
-    - gid=101
+    - uid=1000
+    - gid=1000
   csi:
     driver: gcsfuse.csi.storage.gke.io
     volumeHandle: PROJECT_ID-datasets

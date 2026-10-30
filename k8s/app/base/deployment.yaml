@@ -27,9 +27,6 @@ spec:
             - secretRef:
                 name: hso-env-secret
           volumeMounts:
-            - name: datasets-volume
-              mountPath: /usr/share/nginx/html/datasets
-              readOnly: true
             - name: nginx-config
               mountPath: /etc/nginx/conf.d/default.conf
               subPath: default.conf
@@ -124,10 +121,6 @@ spec:
             limits:
               memory: 256Mi
       volumes:
-        - name: datasets-volume
-          persistentVolumeClaim:
-            claimName: datasets-pvc
-            readOnly: true
         - name: nginx-config
           configMap:
             name: hso-nginx-config

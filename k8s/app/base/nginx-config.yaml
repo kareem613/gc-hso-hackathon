@@ -12,7 +12,7 @@ data:
       root /usr/share/nginx/html;
       index index.html;
 
-      # Static frontend (ES modules) and FUSE-mounted datasets
+      # Static frontend assets (ES modules)
       location / {
         try_files $uri $uri/ =404;
       }

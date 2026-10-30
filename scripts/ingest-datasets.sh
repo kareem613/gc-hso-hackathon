@@ -1,12 +1,10 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Loads the raw dataset files from the GCS FUSE mount into AlloyDB by running
-# the one-shot 'hso-ingest' Kubernetes Job (API image + AlloyDB Auth Proxy
-# sidecar, authenticated via Workload Identity / IAM database auth).
-#
-# Idempotent: the Job truncates and reloads every dataset table, and this
-# script deletes any previous Job before creating a new one.
+# Runs the one-shot 'hso-ingest' Kubernetes Job (api/ingest.js + AlloyDB Auth
+# Proxy sidecar, authenticated via Workload Identity / IAM database auth) to
+# apply api/schema.sql and ingest dataset files from the GCS FUSE mount into
+# AlloyDB.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -28,8 +26,8 @@ if ! kubectl get configmap hso-alloydb-config >/dev/null 2>&1; then
 fi
 
 if ! gcloud storage ls "gs://${PROJECT_ID}-datasets/" --project="${PROJECT_ID}" 2>/dev/null | grep -q .; then
-  echo "Error: Bucket 'gs://${PROJECT_ID}-datasets' is empty. Run ./scripts/upload-datasets.sh first." >&2
-  exit 1
+  echo "==> Note: Bucket 'gs://${PROJECT_ID}-datasets/' currently has no dataset files."
+  echo "    Running 'hso-ingest' Job to apply api/schema.sql and verify AlloyDB connectivity..."
 fi
 
 echo "==> Waiting for AlloyDB primary instance 'hso-primary' to be Ready..."
@@ -71,14 +69,14 @@ if ! kubectl wait --for=condition=complete job/hso-ingest --timeout=600s; then
   exit 1
 fi
 
-echo "==> Verifying row counts via the API..."
+echo "==> Verifying API -> AlloyDB health check..."
 APP_POD="$(kubectl get pods -l app=hso-console --field-selector=status.phase=Running -o jsonpath='{.items[0].metadata.name}' 2>/dev/null || true)"
 if [[ -n "${APP_POD}" ]]; then
   kubectl exec "${APP_POD}" -c hso-api -- node -e '
-    fetch("http://127.0.0.1:8080/api/datasets").then(r => r.json()).then(j => {
-      for (const d of j.datasets) console.log(`    ${d.dataset.padEnd(16)} ${String(d.row_count).padStart(7)} rows  (${d.source_file}, ${d.loaded_at})`);
-    }).catch(e => { console.error("    (could not query /api/datasets:", e.message, ")"); });
+    fetch("http://127.0.0.1:8080/api/health").then(r => r.json()).then(j => {
+      console.log("    /api/health:", JSON.stringify(j));
+    }).catch(e => { console.error("    (could not query /api/health:", e.message, ")"); });
   ' || true
 fi
 
-echo "==> Dataset ingest into AlloyDB complete."
+echo "==> AlloyDB ingest job complete."
