@@ -5,6 +5,7 @@
 .gcloudignore
 .env
 README.md
+AGENTS.md
 incident_briefing.md
 datasets/
 docs/
