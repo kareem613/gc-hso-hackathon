@@ -1,5 +1,4 @@
-datasets/*
-!datasets/.gitkeep
+datasets/*.csv
 .env
 k8s/config/infra.env
 api/node_modules/
