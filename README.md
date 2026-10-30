@@ -48,7 +48,7 @@ Run the lifecycle scripts in order from the repository root:
 
 Open `http://localhost:8090` in your browser.
 
-*(For local frontend development without GKE, run `./scripts/run-local.sh` to serve `./src` on `http://localhost:8080`, or pass `--port <port>` / `--api <origin>` to override.)*
+*(For local live-reload development against AlloyDB, run `./scripts/run-local.sh` to serve `./src` on `http://localhost:8080`, tunnel to AlloyDB, and run `node --watch api/server.js` automatically.)*
 
 ## Where to Build
 

@@ -55,7 +55,7 @@ Both GKE (`Dockerfile` + Nginx, forwarded to `http://localhost:8090` via `script
 | :--- | :--- | :--- | :--- |
 | `/` (`index.html`, JS, CSS) | `COPY src/ /usr/share/nginx/html/` | `./src/*` (`Cache-Control: no-store`) | `Dockerfile` copies `src/` directly into Nginx without a bundler build stage. |
 | `/.env` | Generated at container startup from `Secret/hso-env-secret` | `./.env` (auto-provisioned via `ensure-maps-key.sh` if `infra.env` exists) | Contains `GOOGLE_MAPS_API_KEY=<key>`. Fetch at runtime rather than hardcoding keys in HTML/JS. |
-| `/api/*` | Nginx `proxy_pass` -> `hso-api` (`:8080`) -> AlloyDB via Auth Proxy (`127.0.0.1:5432`) | Proxied to `API_ORIGIN` (`http://127.0.0.1:3000` default; override with `--api`) | `GET /api/health` is pre-wired in `api/server.js`. Add dataset query endpoints here. |
+| `/api/*` | Nginx `proxy_pass` -> `hso-api` (`:8080`) -> AlloyDB via Auth Proxy (`127.0.0.1:5432`) | Auto-spawned `node --watch api/server.js` + `kubectl port-forward` to AlloyDB Auth Proxy | `GET /api/health` is pre-wired in `api/server.js`. Add dataset query endpoints here. |
 | `/datasets` (Ingest Job only) | Read-only GCS FUSE mount on `Job/hso-ingest` (`gs://<PROJECT_ID>-datasets/`) | `./datasets/` (default `DATASETS_DIR` in `api/ingest.js`) | Raw dataset files are staged via `scripts/upload-datasets.sh` and loaded into AlloyDB via `scripts/ingest-datasets.sh` (not exposed over HTTP by Nginx). |
 
 ## Infrastructure & Packaging Pitfalls

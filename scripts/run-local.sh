@@ -3,22 +3,24 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+CONFIG_FILE="${REPO_ROOT}/k8s/config/infra.env"
 
 LOCAL_PORT="${PORT:-8080}"
 BIND_HOST="${HOST:-127.0.0.1}"
-API_UPSTREAM="${API_ORIGIN:-http://127.0.0.1:3000}"
+API_UPSTREAM="${API_ORIGIN:-}"
 
 usage() {
   cat <<EOF
 Usage: $0 [options] [port]
 
-Serve the frontend locally from ./src with /.env mounted from the repo root
-and /api/* proxied to a local Node API server if running.
+Serve the frontend locally from ./src with /.env mounted from the repo root,
+automatically tunneling to AlloyDB in GKE and running api/server.js (--watch)
+so /api/* queries live AlloyDB data.
 
 Options:
   -p, --port <port>       Local port to listen on (default: 8080, or \$PORT)
   -H, --host <host>       Bind address (default: 127.0.0.1, or \$HOST)
-  -a, --api <origin>      Upstream origin for /api/* proxy (default: http://127.0.0.1:3000, or \$API_ORIGIN)
+  -a, --api <origin>      External /api/* upstream (skips auto-starting local api/server.js)
   -h, --help              Show this help message
 EOF
 }
@@ -75,7 +77,7 @@ if [[ ! "${LOCAL_PORT}" =~ ^[0-9]+$ ]] || (( LOCAL_PORT < 1 || LOCAL_PORT > 6553
 fi
 
 if [[ ! -f "${REPO_ROOT}/.env" ]]; then
-  if [[ -f "${REPO_ROOT}/k8s/config/infra.env" ]]; then
+  if [[ -f "${CONFIG_FILE}" ]]; then
     echo "==> .env not found; provisioning Google Maps API key via ensure-maps-key.sh..."
     "${SCRIPT_DIR}/ensure-maps-key.sh"
   else
@@ -83,8 +85,96 @@ if [[ ! -f "${REPO_ROOT}/.env" ]]; then
   fi
 fi
 
+PF_PID=""
+API_PID=""
+PY_PID=""
+
+cleanup() {
+  trap - EXIT INT TERM
+  if [[ -n "${PY_PID}" ]]; then
+    kill -TERM "${PY_PID}" 2>/dev/null || true
+  fi
+  if [[ -n "${API_PID}" ]]; then
+    pkill -TERM -P "${API_PID}" 2>/dev/null || true
+    kill -TERM "${API_PID}" 2>/dev/null || true
+  fi
+  if [[ -n "${PF_PID}" ]]; then
+    kill -TERM "${PF_PID}" 2>/dev/null || true
+  fi
+  wait 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+pick_free_port() {
+  python3 -c '
+import socket
+s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+s.bind(("127.0.0.1", 0))
+print(s.getsockname()[1])
+s.close()
+'
+}
+
+wait_for_port() {
+  local port="$1"
+  local label="$2"
+  python3 - "${port}" "${label}" <<'PY'
+import socket, sys, time
+port = int(sys.argv[1])
+label = sys.argv[2]
+for _ in range(50):
+    try:
+        with socket.create_connection(("127.0.0.1", port), timeout=0.2):
+            sys.exit(0)
+    except OSError:
+        time.sleep(0.1)
+print(f"Warning: Timed out waiting for {label} on 127.0.0.1:{port}", file=sys.stderr)
+sys.exit(1)
+PY
+}
+
+if [[ -z "${API_UPSTREAM}" ]]; then
+  if [[ -f "${CONFIG_FILE}" ]]; then
+    # shellcheck source=../k8s/config/infra.env
+    source "${CONFIG_FILE}"
+    KUBE_CONTEXT="gke_${PROJECT_ID:-}_${REGION:-}_${CLUSTER_NAME:-}"
+
+    if [[ -n "${PROJECT_ID:-}" ]] && kubectl --context="${KUBE_CONTEXT}" get deploy/hso-console >/dev/null 2>&1; then
+      if [[ ! -d "${REPO_ROOT}/api/node_modules" ]]; then
+        echo "==> Installing api/ dependencies (npm ci)..."
+        (cd "${REPO_ROOT}/api" && npm ci --no-audit --no-fund --loglevel=error)
+      fi
+
+      DB_PORT="$(pick_free_port)"
+      API_PORT="$(pick_free_port)"
+
+      echo "==> Forwarding 127.0.0.1:${DB_PORT} -> deploy/hso-console:5432 (AlloyDB Auth Proxy)..."
+      kubectl --context="${KUBE_CONTEXT}" port-forward deploy/hso-console "${DB_PORT}:5432" >/dev/null 2>&1 &
+      PF_PID=$!
+      wait_for_port "${DB_PORT}" "AlloyDB port-forward" || true
+
+      echo "==> Starting local Node API (node --watch api/server.js) on 127.0.0.1:${API_PORT}..."
+      PORT="${API_PORT}" \
+      PGHOST="127.0.0.1" \
+      PGPORT="${DB_PORT}" \
+      PGDATABASE="postgres" \
+      PGUSER="hso-app-gsa@${PROJECT_ID}.iam" \
+        node --watch "${REPO_ROOT}/api/server.js" &
+      API_PID=$!
+      wait_for_port "${API_PORT}" "local api/server.js" || true
+
+      API_UPSTREAM="http://127.0.0.1:${API_PORT}"
+    else
+      echo "Warning: deploy/hso-console not reachable in context '${KUBE_CONTEXT}'; starting frontend without AlloyDB tunnel." >&2
+      API_UPSTREAM="http://127.0.0.1:3000"
+    fi
+  else
+    API_UPSTREAM="http://127.0.0.1:3000"
+  fi
+fi
+
 echo "==> Serving local console at http://localhost:${LOCAL_PORT} (bind ${BIND_HOST}:${LOCAL_PORT}, /api/* -> ${API_UPSTREAM}, Ctrl+C to stop)..."
-exec python3 -u - "${REPO_ROOT}" "${BIND_HOST}" "${LOCAL_PORT}" "${API_UPSTREAM}" <<'PY'
+python3 -u - "${REPO_ROOT}" "${BIND_HOST}" "${LOCAL_PORT}" "${API_UPSTREAM}" <<'PY' &
 import http.server
 import json
 import os
@@ -193,3 +283,5 @@ except (KeyboardInterrupt, SystemExit):
     print("\n==> Stopped local console.", file=sys.stderr)
     sys.exit(0)
 PY
+PY_PID=$!
+wait "${PY_PID}" 2>/dev/null || true
