@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: datasets-pvc
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+spec:
+  accessModes:
+    - ReadOnlyMany
+  storageClassName: gcsfuse-sc
+  volumeName: datasets-pv
+  resources:
+    requests:
+      storage: 5Gi

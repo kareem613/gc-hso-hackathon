@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- MANDATORY: Declare support for both light and dark themes -->
+  <meta name="color-scheme" content="light dark">
+  <script>
+  {
+    const colorScheme = localStorage.getItem("color-scheme");
+    if (colorScheme === "dark" || colorScheme === "light") {
+      document.querySelector('meta[name="color-scheme"]').content = colorScheme;
+      document.documentElement.classList.add(
+        colorScheme === "dark" ? "theme-dark" : "theme-light"
+      );
+    }
+  }
+  </script>
+  <title>INC-2026-1012 | Carling Campus Geospatial Console (FAC-OTT-01)</title>
+  <meta name="description" content="Interactive Google Maps geospatial starter console for Incident #INC-2026-1012 at Carling Campus Government Complex (FAC-OTT-01).">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&amp;family=JetBrains+Mono:wght@400;600;700&amp;display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="header-brand">
+      <span class="incident-tag">#INC-2026-1012</span>
+      <div class="header-titles">
+        <h1>FAC-OTT-01 Geospatial Console</h1>
+        <div id="header-subtitle" class="header-subtitle">45.3507° N, -75.8518° W | Carling Campus Government Complex</div>
+      </div>
+    </div>
+
+    <nav class="header-controls" aria-label="Map View Controls">
+      <button type="button" id="btn-zoom-facility" class="action-btn">Zoom Facility (FAC-OTT-01)</button>
+      <div id="map-mode-group" class="segmented-group" role="group" aria-label="Map Basemap Style">
+        <button type="button" class="seg-btn active" data-map-mode="hybrid">Satellite</button>
+        <button type="button" class="seg-btn" data-map-mode="dark">Dark Map</button>
+        <button type="button" class="seg-btn" data-map-mode="light">Light Map</button>
+      </div>
+      <button type="button" id="btn-theme-toggle" class="action-btn">☀ Light UI</button>
+    </nav>
+  </header>
+
+  <main class="workspace-layout">
+    <section class="map-stage" aria-label="Interactive Google Map">
+      <div id="map-canvas" role="application" aria-label="Carling Campus Facility Map"></div>
+    </section>
+  </main>
+
+  <script type="module" src="./app.js"></script>
+</body>
+</html>

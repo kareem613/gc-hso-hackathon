@@ -1,0 +1,273 @@
+/* ==========================================================================
+   Incident Response Geospatial Console (#INC-2026-1012)
+   Starter Layout & Light/Dark Theme Tokens
+   ========================================================================== */
+
+@layer reset, theme, layout, components;
+
+@layer theme {
+  :root {
+    --bg-canvas-light: #f1f5f9;
+    --bg-canvas-dark: #0b111e;
+    --bg-surface-light: #ffffff;
+    --bg-surface-dark: #111a2e;
+    --bg-elevated-light: #f8fafc;
+    --bg-elevated-dark: #17233b;
+    --text-primary-light: #0f172a;
+    --text-primary-dark: #f1f5f9;
+    --text-secondary-light: #475569;
+    --text-secondary-dark: #94a3b8;
+    --border-subtle-light: #cbd5e1;
+    --border-subtle-dark: #1e293b;
+    --brand-accent-light: #0284c7;
+    --brand-accent-dark: #38bdf8;
+
+    --bg-canvas: var(--bg-canvas-light);
+    --bg-surface: var(--bg-surface-light);
+    --bg-elevated: var(--bg-elevated-light);
+    --text-primary: var(--text-primary-light);
+    --text-secondary: var(--text-secondary-light);
+    --border-subtle: var(--border-subtle-light);
+    --accent-color: var(--brand-accent-light);
+
+    /* MANDATORY: Automatically adapt native UI to user system preferences */
+    color-scheme: light dark;
+    accent-color: var(--accent-color);
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg-canvas: var(--bg-canvas-dark);
+      --bg-surface: var(--bg-surface-dark);
+      --bg-elevated: var(--bg-elevated-dark);
+      --text-primary: var(--text-primary-dark);
+      --text-secondary: var(--text-secondary-dark);
+      --border-subtle: var(--border-subtle-dark);
+      --accent-color: var(--brand-accent-dark);
+    }
+  }
+
+  @supports (color: light-dark(white, black)) {
+    :root {
+      --bg-canvas: light-dark(var(--bg-canvas-light), var(--bg-canvas-dark));
+      --bg-surface: light-dark(var(--bg-surface-light), var(--bg-surface-dark));
+      --bg-elevated: light-dark(var(--bg-elevated-light), var(--bg-elevated-dark));
+      --text-primary: light-dark(var(--text-primary-light), var(--text-primary-dark));
+      --text-secondary: light-dark(var(--text-secondary-light), var(--text-secondary-dark));
+      --border-subtle: light-dark(var(--border-subtle-light), var(--border-subtle-dark));
+      --accent-color: light-dark(var(--brand-accent-light), var(--brand-accent-dark));
+    }
+  }
+
+  html.theme-dark {
+    color-scheme: dark;
+    --bg-canvas: var(--bg-canvas-dark);
+    --bg-surface: var(--bg-surface-dark);
+    --bg-elevated: var(--bg-elevated-dark);
+    --text-primary: var(--text-primary-dark);
+    --text-secondary: var(--text-secondary-dark);
+    --border-subtle: var(--border-subtle-dark);
+    --accent-color: var(--brand-accent-dark);
+  }
+
+  html.theme-light {
+    color-scheme: light;
+    --bg-canvas: var(--bg-canvas-light);
+    --bg-surface: var(--bg-surface-light);
+    --bg-elevated: var(--bg-elevated-light);
+    --text-primary: var(--text-primary-light);
+    --text-secondary: var(--text-secondary-light);
+    --border-subtle: var(--border-subtle-light);
+    --accent-color: var(--brand-accent-light);
+  }
+}
+
+@layer reset {
+  [hidden] { display: none !important; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+}
+
+@layer layout {
+  body {
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    background-color: var(--bg-canvas);
+    color: var(--text-primary);
+    accent-color: var(--accent-color);
+    line-height: 1.5;
+    block-size: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: clip;
+  }
+
+  .app-header {
+    display: flex;
+    align-items: safe center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    padding: 0.6rem 1.15rem;
+    background-color: var(--bg-surface);
+    border-block-end: 1px solid var(--border-subtle);
+    gap: 0.75rem 1rem;
+    flex-shrink: 0;
+    z-index: 20;
+  }
+
+  .header-brand,
+  .header-controls {
+    display: flex;
+    align-items: safe center;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    min-inline-size: 0;
+  }
+
+  .header-titles { min-inline-size: 0; }
+  .app-header h1 { font-size: 1rem; font-weight: 700; letter-spacing: -0.015em; }
+  .header-subtitle { font: 0.76rem "JetBrains Mono", monospace; color: var(--text-secondary); }
+
+  .workspace-layout,
+  .map-stage {
+    position: relative;
+    display: flex;
+    flex: 1 1 auto;
+    min-block-size: 0;
+    min-inline-size: 0;
+  }
+
+  #map-canvas { inline-size: 100%; block-size: 100%; }
+}
+
+@layer components {
+  .incident-tag {
+    font: 600 0.74rem "JetBrains Mono", monospace;
+    padding: 0.22rem 0.5rem;
+    border-radius: 4px;
+    background-color: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    letter-spacing: 0.03em;
+  }
+
+  .action-btn {
+    font: 600 0.76rem inherit;
+    padding: 0.38rem 0.7rem;
+    border-radius: 6px;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-elevated);
+    color: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s ease;
+  }
+  .action-btn:hover { background-color: rgba(56, 189, 248, 0.14); }
+
+  .segmented-group {
+    display: inline-flex;
+    align-items: safe center;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: 6px;
+    padding: 2px;
+    gap: 2px;
+  }
+
+  .seg-btn {
+    font: 600 0.74rem inherit;
+    padding: 0.28rem 0.58rem;
+    border-radius: 4px;
+    border: none;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: background-color 0.15s ease, color 0.15s ease;
+  }
+  .seg-btn:hover { color: var(--text-primary); }
+  .seg-btn.active { background-color: var(--accent-color); color: #0b111e; }
+
+  /* Google Maps InfoWindow Overrides */
+  .gm-style .gm-style-iw-c {
+    background-color: var(--bg-surface) !important;
+    color: var(--text-primary) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: 10px !important;
+    padding: 0 !important;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45) !important;
+    max-inline-size: 340px !important;
+  }
+  .gm-style .gm-style-iw-d { overflow: clip !important; padding: 0 !important; max-block-size: none !important; }
+  .gm-style .gm-style-iw-tc::after { background: var(--bg-surface) !important; }
+  .gm-style :is(.gm-style-iw-chr, .gm-ui-hover-effect) { display: none !important; }
+
+  .map-popup-card {
+    --popup-accent: #10b981;
+    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    color: var(--text-primary);
+    background-color: var(--bg-surface);
+    min-inline-size: 275px;
+    max-inline-size: 330px;
+    display: flex;
+    flex-direction: column;
+  }
+  .map-popup-accent { block-size: 3px; inline-size: 100%; background-color: var(--popup-accent); }
+  .map-popup-body { padding: 0.7rem 0.85rem 0.8rem; display: flex; flex-direction: column; gap: 0.55rem; }
+  .map-popup-top, .map-popup-title-row, .map-popup-kv-row {
+    display: flex;
+    align-items: safe center;
+    justify-content: space-between;
+    gap: 0.5rem;
+  }
+  .map-popup-dataset-pill {
+    display: inline-flex;
+    align-items: safe center;
+    gap: 0.38rem;
+    font-size: 0.67rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 0.18rem 0.48rem;
+    border-radius: 999px;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+  }
+  .map-popup-dot { inline-size: 7px; block-size: 7px; border-radius: 50%; background-color: var(--popup-accent); }
+  .map-popup-close {
+    inline-size: 22px;
+    block-size: 22px;
+    border-radius: 5px;
+    border: 1px solid var(--border-subtle);
+    background-color: var(--bg-elevated);
+    color: var(--text-secondary);
+    cursor: pointer;
+  }
+  .map-popup-close:hover { background-color: rgba(239, 68, 68, 0.16); color: #f87171; }
+  .map-popup-title { font-size: 0.92rem; font-weight: 700; letter-spacing: -0.01em; }
+  .map-popup-tag {
+    font: 600 0.68rem "JetBrains Mono", monospace;
+    padding: 0.1rem 0.38rem;
+    border-radius: 4px;
+    background-color: var(--bg-elevated);
+    border: 1px solid var(--border-subtle);
+    color: var(--accent-color);
+    white-space: nowrap;
+  }
+  .map-popup-kv-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.22rem;
+    padding-block-start: 0.42rem;
+    border-block-start: 1px solid var(--border-subtle);
+  }
+  .map-popup-kv-list.is-borderless { border-block-start: none; padding-block-start: 0; }
+  .map-popup-kv-row { font: 0.7rem "JetBrains Mono", monospace; align-items: baseline; }
+  .map-popup-kv-key { color: var(--text-secondary); flex-shrink: 0; }
+  .map-popup-kv-val { font-weight: 600; text-align: end; word-break: break-word; }
+  .map-popup-section-label {
+    font-size: 0.66rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+    margin-block-start: 0.15rem;
+    padding-block-start: 0.38rem;
+    border-block-start: 1px solid var(--border-subtle);
+  }
+}

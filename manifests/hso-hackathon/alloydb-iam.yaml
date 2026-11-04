@@ -1,0 +1,64 @@
+# Project-level IAM and AlloyDB IAM database user so the hso-app-gsa Workload
+# Identity GSA can connect to AlloyDB through the Auth Proxy with IAM auth.
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-alloydb-client
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/alloydb.client
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-alloydb-db-user
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/alloydb.databaseUser
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+apiVersion: iam.cnrm.cloud.google.com/v1beta1
+kind: IAMPolicyMember
+metadata:
+  name: hso-app-serviceusage-consumer
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  member: serviceAccount:hso-app-gsa@PROJECT_ID.iam.gserviceaccount.com
+  role: roles/serviceusage.serviceUsageConsumer
+  resourceRef:
+    apiVersion: resourcemanager.cnrm.cloud.google.com/v1beta1
+    kind: Project
+    external: projects/PROJECT_ID
+---
+# IAM database user for the Workload Identity GSA used by the API and ingest Job.
+# IAM principal names for service accounts drop the ".gserviceaccount.com" suffix.
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBUser
+metadata:
+  name: hso-app-iam-user
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-app-gsa@IAM_USER_DOMAIN
+  userType: ALLOYDB_IAM_USER
+  databaseRoles:
+    - alloydbiamuser
+    - alloydbsuperuser
+  clusterRef:
+    name: hso-alloydb

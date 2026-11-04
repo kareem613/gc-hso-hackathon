@@ -1,0 +1,39 @@
+# Investigation Status (`#INC-2026-1012`)
+
+### 1. `wlc_syslog.log` (Campus Wireless Controller Syslogs)
+- [ ] Design AlloyDB schema (`api/schema.sql`)
+- [ ] Update ingest job (`api/ingest.js`)
+- [ ] Run job (`./scripts/build-image.sh && ./scripts/ingest-datasets.sh`)
+- [ ] Review in AlloyDB
+- [ ] Implement UI visualization & test locally (`./scripts/run-local.sh`)
+- [ ] Deploy & view hosted (`./scripts/build-image.sh && ./scripts/deploy-app.sh`)
+- [ ] Analyze data — can root cause be determined conclusively?
+  - **Findings / Conclusion:** _Pending_
+
+### 2. `road_traffic.json` (Perimeter Road Traffic Telemetry)
+- [ ] Design AlloyDB schema (`api/schema.sql`)
+- [ ] Update ingest job (`api/ingest.js`)
+- [ ] Run job (`./scripts/build-image.sh && ./scripts/ingest-datasets.sh`)
+- [ ] Review in AlloyDB
+- [ ] Implement UI visualization & test locally (`./scripts/run-local.sh`)
+- [ ] Deploy & view hosted (`./scripts/build-image.sh && ./scripts/deploy-app.sh`)
+- [ ] Analyze data — can root cause be determined conclusively?
+  - **Findings / Conclusion:** _Pending_
+
+### 3. `yow_tower_radar.xml` (Airport Tower Primary & Secondary Radar)
+- [ ] Design AlloyDB schema (`api/schema.sql`)
+- [ ] Update ingest job (`api/ingest.js`)
+- [ ] Run job (`./scripts/build-image.sh && ./scripts/ingest-datasets.sh`)
+- [ ] Review in AlloyDB
+- [ ] Implement UI visualization & test locally (`./scripts/run-local.sh`)
+- [ ] Deploy & view hosted (`./scripts/build-image.sh && ./scripts/deploy-app.sh`)
+- [ ] Analyze data — can root cause be determined conclusively?
+  - **Findings / Conclusion:** _Pending_
+
+### 4. `ottawa_tech_forums.json` (Local Tech & Engineering Forum Scrape)
+- [ ] Design AlloyDB schema (`api/schema.sql`)
+- [ ] Update ingest job (`api/ingest.js`)
+- [ ] Run job (`./scripts/build-image.sh && ./scripts/ingest-datasets.sh`)
+- [ ] Review in AlloyDB
+- [ ] Analyze data — can root cause be determined conclusively?
+  - **Findings / Conclusion:** _Pending_

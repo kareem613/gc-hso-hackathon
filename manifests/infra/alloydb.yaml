@@ -1,0 +1,82 @@
+# AlloyDB for PostgreSQL: private-IP cluster on the bootstrap VPC.
+#
+# Resource chain (ordered via ArgoCD sync waves and Config Connector references):
+#   Wave 1: ComputeAddress (VPC_PEERING range)
+#   Wave 2: ServiceNetworkingConnection (Private Services Access peering)
+#   Wave 3: AlloyDBCluster
+#   Wave 4: AlloyDBInstance (PRIMARY, IAM authentication enabled)
+#
+# PROJECT_ID / REGION / NETWORK_NAME placeholders are substituted by the
+# Kustomize replacements in kustomization.yaml from manifests/config/infra.env.
+apiVersion: compute.cnrm.cloud.google.com/v1beta1
+kind: ComputeAddress
+metadata:
+  name: hso-alloydb-psa-range
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  location: global
+  addressType: INTERNAL
+  purpose: VPC_PEERING
+  prefixLength: 16
+  description: "Private Services Access range for HSO AlloyDB"
+  networkRef:
+    external: projects/PROJECT_ID/global/networks/NETWORK_NAME
+---
+apiVersion: servicenetworking.cnrm.cloud.google.com/v1beta1
+kind: ServiceNetworkingConnection
+metadata:
+  name: hso-alloydb-psa-connection
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  service: servicenetworking.googleapis.com
+  networkRef:
+    external: NETWORK_NAME
+  reservedPeeringRanges:
+    - name: hso-alloydb-psa-range
+---
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBCluster
+metadata:
+  name: hso-alloydb
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-alloydb
+  location: REGION
+  clusterType: PRIMARY
+  displayName: "HSO Geospatial Console AlloyDB"
+  deletionPolicy: FORCE
+  projectRef:
+    external: PROJECT_ID
+  networkConfig:
+    networkRef:
+      external: projects/PROJECT_ID/global/networks/NETWORK_NAME
+    allocatedIpRange: hso-alloydb-psa-range
+  automatedBackupPolicy:
+    enabled: false
+  continuousBackupConfig:
+    enabled: false
+---
+apiVersion: alloydb.cnrm.cloud.google.com/v1beta1
+kind: AlloyDBInstance
+metadata:
+  name: hso-primary
+  annotations:
+    argocd.argoproj.io/sync-wave: "4"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+spec:
+  resourceID: hso-primary
+  instanceType: PRIMARY
+  availabilityType: ZONAL
+  displayName: "HSO AlloyDB Primary"
+  clusterRef:
+    name: hso-alloydb
+  machineConfig:
+    cpuCount: 2
+  databaseFlags:
+    alloydb.iam_authentication: "on"

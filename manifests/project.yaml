@@ -1,0 +1,15 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: hso-hackathon
+  namespace: argocd
+spec:
+  description: Workload project for hso-hackathon
+  sourceRepos:
+    - 'git@gitlab-omnibus.gitlab.svc.cluster.local:hso/hso-hackathon.git'
+  destinations:
+    - namespace: '*'
+      server: https://kubernetes.default.svc
+  clusterResourceWhitelist:
+    - group: '*'
+      kind: '*'

@@ -1,0 +1,17 @@
+.gcloudignore
+.dockerignore
+.git
+.agents
+.gitignore
+.env
+README.md
+AGENTS.md
+investigation_guide.md
+status.md
+status.md.example
+incident_briefing.md
+/datasets/
+/docs/
+/manifests/
+/scripts/
+/api/

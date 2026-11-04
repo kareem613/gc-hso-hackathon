@@ -1,0 +1,94 @@
+# One-shot dataset ingest: files on the GCS FUSE mount -> AlloyDB.
+# Re-run via scripts/ingest-datasets.sh (which deletes and recreates the Job).
+#
+# The Auth Proxy runs as a native sidecar (initContainer with
+# restartPolicy: Always) so it is torn down automatically when the ingest
+# container exits and the Job can reach Complete.
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hso-ingest
+  labels:
+    app: hso-ingest
+spec:
+  backoffLimit: 2
+  ttlSecondsAfterFinished: 3600
+  template:
+    metadata:
+      labels:
+        app: hso-ingest
+      annotations:
+        gke-gcsfuse/volumes: "true"
+    spec:
+      serviceAccountName: hso-app-sa
+      restartPolicy: Never
+      initContainers:
+        - name: alloydb-auth-proxy
+          image: gcr.io/alloydb-connectors/alloydb-auth-proxy:1.13.4
+          restartPolicy: Always
+          args:
+            - "--auto-iam-authn"
+            - "--structured-logs"
+            - "--health-check"
+            - "--http-address=0.0.0.0"
+            - "--http-port=9090"
+            - "--port=5432"
+            - "$(ALLOYDB_INSTANCE_URI)"
+          env:
+            - name: ALLOYDB_INSTANCE_URI
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: ALLOYDB_INSTANCE_URI
+          securityContext:
+            runAsNonRoot: true
+            allowPrivilegeEscalation: false
+          startupProbe:
+            httpGet:
+              path: /startup
+              port: 9090
+            periodSeconds: 2
+            failureThreshold: 30
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              memory: 256Mi
+      containers:
+        - name: hso-ingest
+          image: REGION-docker.pkg.dev/PROJECT_ID/hso-repo/hso-api:latest
+          imagePullPolicy: Always
+          command: ["node", "ingest.js"]
+          env:
+            - name: DATASETS_DIR
+              value: /datasets
+            - name: PGHOST
+              value: "127.0.0.1"
+            - name: PGPORT
+              value: "5432"
+            - name: PGDATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: PGDATABASE
+            - name: PGUSER
+              valueFrom:
+                configMapKeyRef:
+                  name: hso-alloydb-config
+                  key: PGUSER
+          volumeMounts:
+            - name: datasets-volume
+              mountPath: /datasets
+              readOnly: true
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              memory: 1Gi
+      volumes:
+        - name: datasets-volume
+          persistentVolumeClaim:
+            claimName: datasets-pvc
+            readOnly: true

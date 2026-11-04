@@ -1,0 +1,7 @@
+-- ==========================================================================
+-- Starter AlloyDB Schema
+--
+-- Applied automatically by `api/ingest.js` (`./scripts/ingest-datasets.sh`).
+-- Define your tables and indexes below using idempotent DDL
+-- (e.g., CREATE TABLE IF NOT EXISTS ..., CREATE INDEX IF NOT EXISTS ...).
+-- ==========================================================================

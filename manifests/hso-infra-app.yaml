@@ -1,0 +1,26 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: hso-infra
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+  labels:
+    app.kubernetes.io/part-of: hso
+    gitops.platform/group: hso
+    gitops.platform/project: hso-hackathon
+    gitops.platform/tier: infra
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: hso-hackathon
+  source:
+    repoURL: git@gitlab-omnibus.gitlab.svc.cluster.local:hso/hso-hackathon.git
+    targetRevision: main
+    path: manifests/infra
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: hso-hackathon
+  syncPolicy:
+    syncOptions:
+      - CreateNamespace=true

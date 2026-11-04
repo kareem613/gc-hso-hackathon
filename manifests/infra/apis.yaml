@@ -1,0 +1,76 @@
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: artifactregistry.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: artifactregistry.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: cloudbuild.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: cloudbuild.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: storage.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: storage.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: maps-backend.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: maps-backend.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: apikeys.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: apikeys.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: servicenetworking.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: servicenetworking.googleapis.com
+---
+apiVersion: serviceusage.cnrm.cloud.google.com/v1beta1
+kind: Service
+metadata:
+  name: alloydb.googleapis.com
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    cnrm.cloud.google.com/project-id: PROJECT_ID
+    cnrm.cloud.google.com/deletion-policy: abandon
+spec:
+  resourceID: alloydb.googleapis.com
